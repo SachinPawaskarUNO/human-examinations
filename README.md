@@ -61,7 +61,75 @@ php artisan vendor:publish --tag="human-examinations-assets"
 
 ## Usage
 
-<!-- Add a basic usage example here. -->
+The package owns two independent tables: `human_examinations` and
+`human_examination_observations`. It does not require host person, case, team, or
+user tables. Publish and run the migrations before using the models.
+
+```php
+use HumanExaminations\HumanExaminations\Models\Examination;
+
+$examination = Examination::create([
+    'reference' => 'EX-001',
+    'examiner' => 'Dr Smith',
+    'date' => '2026-11-12',
+    'notes' => 'Initial examination.',
+]);
+
+$observation = $examination->observations()->create([
+    'number' => 1,
+    'type' => 'Scar',
+    'label' => 'Linear scar',
+    'region' => 'Right upper arm',
+    'description' => 'Healed linear scar.',
+    'length_mm' => '32.50',
+    'width_mm' => '4.25',
+    'sketch_id' => 'body-front',
+    'x' => 0.31,
+    'y' => 0.32,
+]);
+
+$observation->examination; // BelongsTo Examination
+$examination->observations; // HasMany Observation
+```
+
+Examination metadata is nullable to support drafts. `date` is cast to a date and
+serialized as `Y-m-d`. References are indexed but need not be unique. Each
+observation requires a positive integer `number`, unique within its examination,
+including soft-deleted observations. Allocate numbers in the consuming app;
+the database rejects duplicates. `type` defaults to `Unspecified` and accepts
+application-defined strings. Label, region, description, and measurements are
+nullable. Measurements use millimetres and decimal casts with two decimal places.
+
+A location consists of a stable `sketch_id` (for example `body-front` or
+`hand-left-palmar`) and normalized `x`/`y` coordinates in the inclusive range
+0–1, measured from the sketch's top-left corner. Coordinates use six decimal
+places. Store identifiers, not asset URLs or filenames that change with builds.
+Anatomical left/right always refer to the subject. No sketch catalogue or region
+inference is imposed by the models.
+
+For an observation without a diagram location, leave `sketch_id`, `x`, and `y`
+null. Clear a location by setting all three fields to null together. Eloquent
+saves reject incomplete locations, invalid coordinates, negative or non-finite
+measurements, and invalid observation numbers with `DomainException`. These
+checks run on model saves; query builder and bulk updates bypass model events.
+The database enforces the examination foreign key and per-examination number
+uniqueness.
+
+Both models use integer IDs, timestamps, and soft deletion. Soft-deleting an
+examination preserves its observations so restoration brings them back unchanged;
+it does not individually soft-delete them. Query observations through an active,
+authorized examination, since a direct observation query does not exclude
+observations of a soft-deleted examination. Permanently deleting an examination
+cascades to all its observations, including soft-deleted ones.
+
+### Host Integration
+
+The consuming application owns links to existing records, team ownership,
+authorization, and user auditing. It can add a foreign key or association table
+linking its records to `human_examinations`. The package does not copy, replace,
+or automatically create counterparts for existing host examinations. Existing
+examination data and observations require an explicit integration decision before
+adoption; these migrations do not alter or migrate host tables.
 
 ## Changelog
 
