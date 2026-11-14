@@ -96,9 +96,69 @@ Examination metadata is nullable to support drafts. `date` is cast to a date and
 serialized as `Y-m-d`. References are indexed but need not be unique. Each
 observation requires a positive integer `number`, unique within its examination,
 including soft-deleted observations. Allocate numbers in the consuming app;
-the database rejects duplicates. `type` defaults to `Unspecified` and accepts
-application-defined strings. Label, region, description, and measurements are
-nullable. Measurements use millimetres and decimal casts with two decimal places.
+the database rejects duplicates. `type` is cast to an observation type enum and
+defaults to `Unspecified` (see [Observation Types](#observation-types)). Label,
+region, description, and measurements are nullable. Measurements use millimetres
+and decimal casts with two decimal places.
+
+### Observation Types
+
+An observation's `type` is cast to the
+`HumanExaminations\HumanExaminations\Enums\ObservationType` enum, a
+string-backed enum with these values:
+
+`Unspecified`, `Scar`, `Tattoo`, `Birthmark`, `Injury`, `Gunshot wound`,
+`Stab wound`, `Bruise`, `Abrasion`, `Other`
+
+You may assign either the enum case or its string value. Reading `type` always
+returns the enum case, and the database stores the string value:
+
+```php
+use HumanExaminations\HumanExaminations\Enums\ObservationType;
+
+$examination->observations()->create(['number' => 2, 'type' => ObservationType::GunshotWound]);
+$examination->observations()->create(['number' => 3, 'type' => 'Gunshot wound']);
+
+$observation->type;        // ObservationType::GunshotWound
+$observation->type->value; // 'Gunshot wound'
+```
+
+Assigning a value that is not in the enum throws a `ValueError`.
+
+To use your own list of types, publish the configuration file and point
+`observation_type` at your own string-backed enum:
+
+```php
+// config/human-examinations.php
+'observation_type' => App\Enums\FindingType::class,
+```
+
+Your enum must be string-backed and must include a case with the value
+`Unspecified`, which is the default type. The `type` column is a plain string,
+so changing the enum does not require a migration. However, existing rows whose
+values are not in the new enum will throw a `ValueError` when they are loaded.
+`Observation::typeEnum()` returns the configured enum class, for example to
+build a list of options for a form.
+
+### Vue Workspace
+
+`resources/js/components/HumanExaminationWorkspace.vue` is a Vue 3 component
+for your app's Vite build. Pass the observation types from Laravel, for example
+as an Inertia prop, to show them in the Type dropdown:
+
+```php
+use HumanExaminations\HumanExaminations\Models\Observation;
+
+return Inertia::render('Examination', [
+    'observationTypes' => array_map(fn ($type) => $type->value, Observation::typeEnum()::cases()),
+]);
+```
+
+```vue
+<HumanExaminationWorkspace v-model:observations="observations" :types="observationTypes" />
+```
+
+Without `types`, the Type field is free text.
 
 A location consists of a stable `sketch_id` (for example `body-front` or
 `hand-left-palmar`) and normalized `x`/`y` coordinates in the inclusive range

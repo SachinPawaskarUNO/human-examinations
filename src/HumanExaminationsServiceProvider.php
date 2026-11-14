@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace HumanExaminations\HumanExaminations;
 
+use HumanExaminations\HumanExaminations\Actions\CreateExamination;
+use HumanExaminations\HumanExaminations\Actions\UpdateExamination;
 use HumanExaminations\HumanExaminations\Console\Commands\HumanExaminationsCommand;
 use Illuminate\Support\ServiceProvider;
 
@@ -17,6 +19,23 @@ class HumanExaminationsServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../config/human-examinations.php', 'human-examinations');
 
         $this->app->singleton(HumanExaminations::class);
+
+        // Use the app's own action class if the config points at one.
+        $this->app->bind(CreateExamination::class, function (): CreateExamination {
+            $class = config('human-examinations.actions.create_examination', CreateExamination::class);
+
+            return $class === CreateExamination::class
+                ? new CreateExamination
+                : app($class);
+        });
+
+        $this->app->bind(UpdateExamination::class, function (): UpdateExamination {
+            $class = config('human-examinations.actions.update_examination', UpdateExamination::class);
+
+            return $class === UpdateExamination::class
+                ? new UpdateExamination
+                : app($class);
+        });
     }
 
     /**

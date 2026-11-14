@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use HumanExaminations\HumanExaminations\Enums\ObservationType;
 use HumanExaminations\HumanExaminations\HumanExaminations;
 
 it('resolves the singleton', function () {
@@ -13,7 +14,7 @@ it('returns the same instance from the container', function () {
 });
 
 it('merges the package config', function () {
-    expect(config('human-examinations.placeholder'))->toBe('default');
+    expect(config('human-examinations.observation_type'))->toBe(ObservationType::class);
 });
 
 it('loads the package translations', function () {

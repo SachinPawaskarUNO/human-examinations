@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use HumanExaminations\HumanExaminations\Enums\ObservationType;
 use HumanExaminations\HumanExaminations\HumanExaminationsServiceProvider;
 use HumanExaminations\HumanExaminations\Models\Examination;
 use HumanExaminations\HumanExaminations\Models\Observation;
@@ -108,7 +109,7 @@ it('relates observations to their examination and casts measurements and locatio
         ->and($examination->observations->modelKeys())->toBe([$observation->id])
         ->and($other->observations)->toBeEmpty()
         ->and($observation->number)->toBe(1)
-        ->and($observation->type)->toBe('Scar')
+        ->and($observation->type)->toBe(ObservationType::Scar)
         ->and($observation->label)->toBe('Linear scar')
         ->and($observation->region)->toBe('Right upper arm')
         ->and($observation->description)->toBe('Healed scar.')
@@ -122,7 +123,7 @@ it('relates observations to their examination and casts measurements and locatio
 it('supports observations without measurements or a sketch location and can clear locations', function () {
     $observation = Examination::query()->create([])->observations()->create(['number' => 1])->fresh();
 
-    expect($observation->type)->toBe('Unspecified')
+    expect($observation->type)->toBe(ObservationType::Unspecified)
         ->and($observation->label)->toBeNull()
         ->and($observation->region)->toBeNull()
         ->and($observation->description)->toBeNull()
