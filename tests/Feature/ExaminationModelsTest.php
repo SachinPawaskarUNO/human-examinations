@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use HumanExaminations\HumanExaminations\Enums\ObservationType;
 use HumanExaminations\HumanExaminations\HumanExaminationsServiceProvider;
 use HumanExaminations\HumanExaminations\Models\Examination;
 use HumanExaminations\HumanExaminations\Models\Observation;
@@ -40,7 +41,8 @@ it('creates and rolls back the publishable package tables without altering host 
         ->and(Schema::hasTable('human_examinations_placeholder'))->toBeFalse();
 
     $paths = ServiceProvider::pathsToPublish(HumanExaminationsServiceProvider::class, 'human-examinations-migrations');
-    expect($paths)->toHaveKey(dirname(__DIR__, 2).'/src/../database/migrations');
+    // Compare resolved folders, not strings, so `/` vs `\` separators on Windows don't matter.
+    expect(array_map(realpath(...), array_keys($paths)))->toContain(realpath(__DIR__.'/../../database/migrations'));
 
     $this->artisan('migrate:rollback', [
         '--path' => realpath(__DIR__.'/../../database/migrations'),
@@ -108,7 +110,7 @@ it('relates observations to their examination and casts measurements and locatio
         ->and($examination->observations->modelKeys())->toBe([$observation->id])
         ->and($other->observations)->toBeEmpty()
         ->and($observation->number)->toBe(1)
-        ->and($observation->type)->toBe('Scar')
+        ->and($observation->type)->toBe(ObservationType::Scar)
         ->and($observation->label)->toBe('Linear scar')
         ->and($observation->region)->toBe('Right upper arm')
         ->and($observation->description)->toBe('Healed scar.')
@@ -122,7 +124,7 @@ it('relates observations to their examination and casts measurements and locatio
 it('supports observations without measurements or a sketch location and can clear locations', function () {
     $observation = Examination::query()->create([])->observations()->create(['number' => 1])->fresh();
 
-    expect($observation->type)->toBe('Unspecified')
+    expect($observation->type)->toBe(ObservationType::Unspecified)
         ->and($observation->label)->toBeNull()
         ->and($observation->region)->toBeNull()
         ->and($observation->description)->toBeNull()

@@ -4,17 +4,21 @@ declare(strict_types=1);
 
 namespace HumanExaminations\HumanExaminations\Models;
 
+use BackedEnum;
 use DomainException;
+use HumanExaminations\HumanExaminations\Enums\ObservationType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use ReflectionEnum;
+use ReflectionNamedType;
 
 /**
  * @property int $id
  * @property int $examination_id
  * @property int $number
- * @property string $type
+ * @property BackedEnum $type An ObservationType case, or a case of the configured enum
  * @property string|null $label
  * @property string|null $region
  * @property string|null $description
@@ -80,6 +84,28 @@ class Observation extends Model
         });
     }
 
+    /**
+     * The enum class configured for observation types.
+     *
+     * @return class-string<BackedEnum>
+     */
+    public static function typeEnum(): string
+    {
+        $enum = config('human-examinations.observation_type', ObservationType::class);
+
+        if (! is_string($enum) || ! enum_exists($enum) || ! is_subclass_of($enum, BackedEnum::class)) {
+            throw new DomainException('The human-examinations.observation_type config must be a backed enum class.');
+        }
+
+        $backing = (new ReflectionEnum($enum))->getBackingType();
+
+        if (! $backing instanceof ReflectionNamedType || $backing->getName() !== 'string') {
+            throw new DomainException('The human-examinations.observation_type enum must be string-backed.');
+        }
+
+        return $enum;
+    }
+
     /** @return BelongsTo<Examination, $this> */
     public function examination(): BelongsTo
     {
@@ -92,6 +118,7 @@ class Observation extends Model
         return [
             'examination_id' => 'integer',
             'number' => 'integer',
+            'type' => static::typeEnum(),
             'length_mm' => 'decimal:2',
             'width_mm' => 'decimal:2',
             'x' => 'decimal:6',
