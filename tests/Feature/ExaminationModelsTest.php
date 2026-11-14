@@ -41,7 +41,8 @@ it('creates and rolls back the publishable package tables without altering host 
         ->and(Schema::hasTable('human_examinations_placeholder'))->toBeFalse();
 
     $paths = ServiceProvider::pathsToPublish(HumanExaminationsServiceProvider::class, 'human-examinations-migrations');
-    expect($paths)->toHaveKey(dirname(__DIR__, 2).'/src/../database/migrations');
+    // Compare resolved folders, not strings, so `/` vs `\` separators on Windows don't matter.
+    expect(array_map(realpath(...), array_keys($paths)))->toContain(realpath(__DIR__.'/../../database/migrations'));
 
     $this->artisan('migrate:rollback', [
         '--path' => realpath(__DIR__.'/../../database/migrations'),
