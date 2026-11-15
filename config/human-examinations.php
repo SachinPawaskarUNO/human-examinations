@@ -3,7 +3,10 @@
 declare(strict_types=1);
 
 use HumanExaminations\HumanExaminations\Actions\CreateExamination;
+use HumanExaminations\HumanExaminations\Actions\CreateObservation;
+use HumanExaminations\HumanExaminations\Actions\DeleteObservation;
 use HumanExaminations\HumanExaminations\Actions\UpdateExamination;
+use HumanExaminations\HumanExaminations\Actions\UpdateObservation;
 use HumanExaminations\HumanExaminations\Enums\ObservationType;
 
 return [
@@ -35,6 +38,28 @@ return [
     'actions' => [
         'create_examination' => CreateExamination::class,
         'update_examination' => UpdateExamination::class,
+        'create_observation' => CreateObservation::class,
+        'update_observation' => UpdateObservation::class,
+        'delete_observation' => DeleteObservation::class,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Package Routes
+    |--------------------------------------------------------------------------
+    |
+    | Enable the optional examination and observation write routes after
+    | registering the host app's Examination policy. Middleware replaces the default list, while
+    | route model binding is always retained.
+    | The name prefix includes its trailing dot, or may be an empty string.
+    |
+    */
+
+    'routes' => [
+        'enabled' => false,
+        'prefix' => 'human-examinations',
+        'name_prefix' => 'human-examinations.',
+        'middleware' => ['web', 'auth'],
     ],
 
     /*

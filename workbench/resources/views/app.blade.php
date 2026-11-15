@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Human Examinations Workbench</title>
     @vite('workbench/resources/js/app.js')
-    @inertiaHead
+    <x-inertia::head />
 </head>
 <body>
-    @inertia
+    <x-inertia::app />
 </body>
 </html>

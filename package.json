@@ -2,7 +2,9 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "dev": "vite"
+        "dev": "vite",
+        "build": "vite build",
+        "test": "node --test tests/frontend/*.test.js"
     },
     "devDependencies": {
         "@inertiajs/vue3": "^3.11.0",

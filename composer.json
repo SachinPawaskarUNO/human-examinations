@@ -55,7 +55,11 @@
             "@php vendor/bin/testbench package:discover --ansi"
         ],
         "build": [
-            "@php vendor/bin/testbench workbench:build --ansi"
+            "@php vendor/bin/testbench workbench:build --ansi",
+            "@build:assets"
+        ],
+        "build:assets": [
+            "npm run build"
         ],
         "serve": [
             "Composer\\Config::disableProcessTimeout",

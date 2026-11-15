@@ -24,6 +24,7 @@ Clone your fork, then install the dev dependencies:
 
 ```bash
 composer install
+npm ci
 ```
 
 ## Lint
@@ -36,8 +37,10 @@ composer lint
 
 ## Tests
 
-Run all tests:
+Run PHP validation and the frontend catalogue/rendering tests:
 
 ```bash
 composer test
+npm test
+npm run build
 ```

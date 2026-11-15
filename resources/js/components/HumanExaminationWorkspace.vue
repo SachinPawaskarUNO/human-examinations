@@ -1,10 +1,14 @@
 <script setup>
-defineProps({
+import AnatomicalViews from './AnatomicalViews.vue';
+
+const props = defineProps({
     // Observation types for the Type dropdown.
     types: { type: Array, default: () => [] },
+    // The host handles persistence through save-observation/delete-observation events.
+    persistentObservations: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['new-examination']);
+const emit = defineEmits(['new-examination', 'save-observation', 'delete-observation']);
 
 import { computed, ref } from 'vue';
 
@@ -63,24 +67,36 @@ function updateExamination(key, value) {
     };
 }
 
-const FIELDS = ['type', 'label', 'region', 'length_mm', 'width_mm'];
+const FIELDS = ['type', 'label', 'region', 'description', 'length_mm', 'width_mm'];
+const observationPending = ref(false);
+const observationErrors = ref({});
+const canEditObservations = computed(
+    () => !props.persistentObservations || Boolean(examination.value.id),
+);
 
 // The observation being added or edited.
 const draft = ref(null);
 
 function startNew() {
+    if (observationPending.value || !canEditObservations.value) return;
+    observationErrors.value = {};
     draft.value = {
+        id: null,
         number: null,
         type: null,
         label: null,
         region: null,
+        description: null,
         length_mm: null,
         width_mm: null,
     };
 }
 
 function edit(observation) {
+    if (observationPending.value) return;
+    observationErrors.value = {};
     draft.value = {
+        id: observation.id,
         number: observation.number,
         ...Object.fromEntries(FIELDS.map((f) => [f, observation[f]])),
     };
@@ -88,6 +104,21 @@ function edit(observation) {
 
 function cancel() {
     draft.value = null;
+    observationErrors.value = {};
+}
+
+function persistObservation(event, payload, onSuccess) {
+    observationPending.value = true;
+    observationErrors.value = {};
+    let completed = false;
+
+    emit(event, payload, (errors = {}) => {
+        if (completed) return;
+        completed = true;
+        observationPending.value = false;
+        observationErrors.value = errors;
+        if (Object.keys(errors).length === 0) onSuccess();
+    });
 }
 
 // An observation can only be saved once it has a type.
@@ -96,13 +127,20 @@ const missingType = computed(
 );
 
 function save() {
-    if (missingType.value) {
+    if (missingType.value || observationPending.value || !canEditObservations.value) {
         return;
     }
 
     const values = Object.fromEntries(
         FIELDS.map((f) => [f, draft.value[f] === '' ? null : draft.value[f]]),
     );
+
+    if (props.persistentObservations) {
+        persistObservation('save-observation', { id: draft.value.id, ...values }, () => {
+            draft.value = null;
+        });
+        return;
+    }
 
     if (draft.value.number === null) {
         const number =
@@ -129,6 +167,15 @@ function save() {
 }
 
 function removeObservation(number) {
+    if (observationPending.value) return;
+    if (props.persistentObservations) {
+        const observation = observations.value.find((item) => item.number === number);
+        if (!observation) return;
+        persistObservation('delete-observation', observation, () => {
+            if (draft.value?.number === number) cancel();
+        });
+        return;
+    }
     observations.value = observations.value.filter((o) => o.number !== number);
 
     if (draft.value?.number === number) {
@@ -170,6 +217,7 @@ function details(o) {
             <button
                 type="button"
                 class="he-button he-button--primary"
+                :disabled="observationPending"
                 @click="openNewExamination"
             >
                 <svg class="he-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -239,7 +287,7 @@ function details(o) {
         <div class="he-body">
             <section class="he-card he-area" aria-label="Workspace area">
                 <slot>
-                    <p class="he-muted">Workspace area</p>
+                    <AnatomicalViews />
                 </slot>
             </section>
 
@@ -287,6 +335,7 @@ function details(o) {
                         class="he-button he-button--primary he-button--icon"
                         aria-label="Add observation"
                         title="Add observation"
+                        :disabled="observationPending || !canEditObservations"
                         @click="startNew"
                     >
                         <svg
@@ -357,106 +406,143 @@ function details(o) {
                 </div>
 
                 <template v-else>
+                    <p v-if="!canEditObservations" class="he-observation-notice he-muted he-small">
+                        Create an examination before adding observations.
+                    </p>
+                    <p v-if="observationPending" class="he-observation-notice he-muted he-small" role="status">
+                        Saving changes…
+                    </p>
+                    <div v-if="Object.keys(observationErrors).length" class="he-observation-errors" role="alert">
+                        <p>Changes were not saved. Please review:</p>
+                        <ul>
+                            <li v-for="(message, field) in observationErrors" :key="field">{{ message }}</li>
+                        </ul>
+                    </div>
                     <form v-if="draft" class="he-form" @submit.prevent="save">
-                        <p class="he-form__title">
-                            {{
-                                draft.number === null
-                                    ? 'New observation'
-                                    : `Edit observation ${draft.number}`
-                            }}
-                        </p>
+                        <fieldset class="he-observation-fields" :disabled="observationPending">
+                            <p class="he-form__title">
+                                {{
+                                    draft.number === null
+                                        ? 'New observation'
+                                        : `Edit observation ${draft.number}`
+                                }}
+                            </p>
 
-                        <label class="he-field">
-                            <span
-                                >Type
-                                <abbr class="he-required" title="required"
-                                    >*</abbr
-                                ></span
-                            >
-                            <select
-                                v-if="types.length"
-                                v-model="draft.type"
-                                class="he-input"
-                                required
-                            >
-                                <option :value="null">Select type</option>
-                                <option
-                                    v-for="type in types"
-                                    :key="type"
-                                    :value="type"
+                            <label class="he-field">
+                                <span
+                                    >Type
+                                    <abbr class="he-required" title="required"
+                                        >*</abbr
+                                    ></span
                                 >
-                                    {{ type }}
-                                </option>
-                            </select>
-                            <input
-                                v-else
-                                v-model="draft.type"
-                                class="he-input"
-                                required
-                            />
-                        </label>
-
-                        <label class="he-field">
-                            <span>Label</span>
-                            <input
-                                v-model="draft.label"
-                                class="he-input"
-                                placeholder="e.g. Linear scar"
-                            />
-                        </label>
-
-                        <label class="he-field">
-                            <span>Region</span>
-                            <input
-                                v-model="draft.region"
-                                class="he-input"
-                                placeholder="e.g. Right upper arm"
-                            />
-                        </label>
-
-                        <div class="he-field-row">
-                            <label class="he-field">
-                                <span>Length (mm)</span>
-                                <input
-                                    v-model="draft.length_mm"
+                                <select
+                                    v-if="types.length"
+                                    v-model="draft.type"
+                                    name="type"
+                                    :aria-invalid="Boolean(observationErrors.type)"
                                     class="he-input"
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
+                                    required
+                                >
+                                    <option :value="null">Select type</option>
+                                    <option
+                                        v-for="type in types"
+                                        :key="type"
+                                        :value="type"
+                                    >
+                                        {{ type }}
+                                    </option>
+                                </select>
+                                <input
+                                    v-else
+                                    v-model="draft.type"
+                                    name="type"
+                                    :aria-invalid="Boolean(observationErrors.type)"
+                                    class="he-input"
+                                    required
                                 />
                             </label>
 
                             <label class="he-field">
-                                <span>Width (mm)</span>
+                                <span>Label</span>
                                 <input
-                                    v-model="draft.width_mm"
+                                    v-model="draft.label"
+                                    name="label"
+                                    :aria-invalid="Boolean(observationErrors.label)"
                                     class="he-input"
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
+                                    placeholder="e.g. Linear scar"
                                 />
                             </label>
-                        </div>
 
-                        <div class="he-form__actions">
-                            <button
-                                type="button"
-                                class="he-button he-button--outline"
-                                @click="cancel"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                class="he-button he-button--primary"
-                                :disabled="missingType"
-                                :title="
-                                    missingType ? 'Choose a type to save' : null
-                                "
-                            >
-                                Save
-                            </button>
-                        </div>
+                            <label class="he-field">
+                                <span>Region</span>
+                                <input
+                                    v-model="draft.region"
+                                    name="region"
+                                    :aria-invalid="Boolean(observationErrors.region)"
+                                    class="he-input"
+                                    placeholder="e.g. Right upper arm"
+                                />
+                            </label>
+
+                            <label class="he-field">
+                                <span>Description</span>
+                                <textarea
+                                    v-model="draft.description"
+                                    name="description"
+                                    :aria-invalid="Boolean(observationErrors.description)"
+                                    class="he-input he-textarea"
+                                    rows="3"
+                                ></textarea>
+                            </label>
+
+                            <div class="he-field-row">
+                                <label class="he-field">
+                                    <span>Length (mm)</span>
+                                    <input
+                                        v-model="draft.length_mm"
+                                        name="length_mm"
+                                        :aria-invalid="Boolean(observationErrors.length_mm)"
+                                        class="he-input"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                    />
+                                </label>
+
+                                <label class="he-field">
+                                    <span>Width (mm)</span>
+                                    <input
+                                        v-model="draft.width_mm"
+                                        name="width_mm"
+                                        :aria-invalid="Boolean(observationErrors.width_mm)"
+                                        class="he-input"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                    />
+                                </label>
+                            </div>
+
+                            <div class="he-form__actions">
+                                <button
+                                    type="button"
+                                    class="he-button he-button--outline"
+                                    @click="cancel"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    class="he-button he-button--primary"
+                                    :disabled="missingType || observationPending"
+                                    :title="
+                                        missingType ? 'Choose a type to save' : null
+                                    "
+                                >
+                                    Save
+                                </button>
+                            </div>
+                        </fieldset>
                     </form>
 
                     <ul v-if="observations.length" class="he-list">
@@ -486,6 +572,7 @@ function details(o) {
                                 class="he-button he-button--ghost he-button--icon-sm"
                                 :aria-label="`Edit observation ${o.number}`"
                                 title="Edit observation"
+                                :disabled="observationPending"
                                 @click="edit(o)"
                             >
                                 <svg
@@ -503,6 +590,7 @@ function details(o) {
                                 class="he-button he-button--ghost he-button--icon-sm"
                                 :aria-label="`Remove observation ${o.number}`"
                                 title="Remove observation"
+                                :disabled="observationPending"
                                 @click="removeObservation(o.number)"
                             >
                                 <svg
@@ -852,6 +940,35 @@ function details(o) {
     padding: 1rem;
     border-bottom: 1px solid var(--he-border);
     background: color-mix(in oklab, var(--he-muted) 40%, transparent);
+}
+
+.he-observation-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.he-observation-notice,
+.he-observation-errors {
+    padding: 0.75rem 1rem;
+}
+
+.he-observation-errors {
+    color: #b91c1c;
+    font-size: 0.875rem;
+}
+
+.he-observation-errors p,
+.he-observation-errors ul {
+    margin: 0;
+}
+
+.he-observation-errors ul {
+    padding-left: 1.25rem;
 }
 
 .he-form__title {
