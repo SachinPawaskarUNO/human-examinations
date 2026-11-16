@@ -7,7 +7,7 @@
         "spawaskar",
         "human-examinations"
     ],
-    "homepage": "https://github.com/spawaskar/human-examinations",
+    "homepage": "https://github.com/SachinPawaskarUNO/human-examinations",
     "license": "MIT",
     "authors": [
         {
@@ -31,7 +31,8 @@
         "pestphp/pest": "^4.6||^5.0",
         "pestphp/pest-plugin-laravel": "^4.1||^5.0",
         "pestphp/pest-plugin-type-coverage": "^4.0||^5.0",
-        "phpstan/extension-installer": "^1.4"
+        "phpstan/extension-installer": "^1.4",
+        "phpstan/phpstan": "^2.0 <2.3.6"
     },
     "autoload": {
         "psr-4": {
@@ -55,7 +56,11 @@
             "@php vendor/bin/testbench package:discover --ansi"
         ],
         "build": [
-            "@php vendor/bin/testbench workbench:build --ansi"
+            "@php vendor/bin/testbench workbench:build --ansi",
+            "@build:assets"
+        ],
+        "build:assets": [
+            "npm run build"
         ],
         "serve": [
             "Composer\\Config::disableProcessTimeout",

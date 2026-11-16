@@ -9,11 +9,14 @@ use HumanExaminations\HumanExaminations\Actions\UpdateExamination;
 use HumanExaminations\HumanExaminations\Models\Examination;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class ExaminationController
 {
     public function store(Request $request, CreateExamination $createExamination): RedirectResponse
     {
+        Gate::authorize('create', Examination::class);
+
         $examination = $createExamination->handle($this->validated($request));
 
         // Send the user to the app's workspace page for the new examination, if one is configured.
@@ -26,6 +29,8 @@ class ExaminationController
 
     public function update(Request $request, Examination $examination, UpdateExamination $updateExamination): RedirectResponse
     {
+        Gate::authorize('update', $examination);
+
         $updateExamination->handle($examination, $this->validated($request));
 
         return back();

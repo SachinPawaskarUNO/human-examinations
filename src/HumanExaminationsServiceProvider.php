@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace HumanExaminations\HumanExaminations;
 
 use HumanExaminations\HumanExaminations\Actions\CreateExamination;
+use HumanExaminations\HumanExaminations\Actions\CreateObservation;
+use HumanExaminations\HumanExaminations\Actions\DeleteObservation;
 use HumanExaminations\HumanExaminations\Actions\UpdateExamination;
+use HumanExaminations\HumanExaminations\Actions\UpdateObservation;
 use HumanExaminations\HumanExaminations\Console\Commands\HumanExaminationsCommand;
 use Illuminate\Support\ServiceProvider;
 
@@ -35,6 +38,24 @@ class HumanExaminationsServiceProvider extends ServiceProvider
             return $class === UpdateExamination::class
                 ? new UpdateExamination
                 : app($class);
+        });
+
+        $this->app->bind(CreateObservation::class, function (): CreateObservation {
+            $class = config('human-examinations.actions.create_observation', CreateObservation::class);
+
+            return $class === CreateObservation::class ? new CreateObservation : app($class);
+        });
+
+        $this->app->bind(UpdateObservation::class, function (): UpdateObservation {
+            $class = config('human-examinations.actions.update_observation', UpdateObservation::class);
+
+            return $class === UpdateObservation::class ? new UpdateObservation : app($class);
+        });
+
+        $this->app->bind(DeleteObservation::class, function (): DeleteObservation {
+            $class = config('human-examinations.actions.delete_observation', DeleteObservation::class);
+
+            return $class === DeleteObservation::class ? new DeleteObservation : app($class);
         });
     }
 
