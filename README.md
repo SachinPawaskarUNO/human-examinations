@@ -3,11 +3,10 @@
 </div>
 
 <p align="center">
-    <a href="https://packagist.org/packages/spawaskar/human-examinations"><img src="https://img.shields.io/packagist/v/spawaskar/human-examinations.svg?style=flat-square" alt="Packagist"></a>
-    <a href="https://packagist.org/packages/spawaskar/human-examinations"><img src="https://img.shields.io/packagist/php-v/spawaskar/human-examinations.svg?style=flat-square" alt="PHP from Packagist"></a>
-    <a href="https://packagist.org/packages/spawaskar/human-examinations"><img src="https://badge.laravel.cloud/badge/spawaskar/human-examinations?style=flat" alt="Laravel versions"></a>
-    <a href="https://github.com/spawaskar/human-examinations/actions"><img alt="GitHub Workflow Status (main)" src="https://img.shields.io/github/actions/workflow/status/spawaskar/human-examinations/tests.yml?branch=main&label=Tests&style=flat-square"></a>
-    <a href="https://packagist.org/packages/spawaskar/human-examinations"><img src="https://img.shields.io/packagist/dt/spawaskar/human-examinations.svg?style=flat-square" alt="Total Downloads"></a>
+    <a href="composer.json"><img src="https://img.shields.io/badge/PHP-%5E8.3-777BB4?style=flat-square" alt="PHP ^8.3"></a>
+    <a href="composer.json"><img src="https://img.shields.io/badge/Laravel-12%20%7C%2013-FF2D20?style=flat-square" alt="Laravel 12 | 13"></a>
+    <a href="https://github.com/SachinPawaskarUNO/human-examinations/actions/workflows/tests.yml?query=branch%3Amain"><img src="https://img.shields.io/github/actions/workflow/status/SachinPawaskarUNO/human-examinations/tests.yml?branch=main&amp;label=Tests&amp;style=flat-square" alt="Tests (main)"></a>
+    <a href="LICENSE.md"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License: MIT"></a>
 </p>
 
 This package allows you to add human examinations images & resources, components & ui to your laravel/vue project
@@ -162,11 +161,56 @@ return Inertia::render('Examination', [
 
 Without `types`, the Type field is free text.
 
+#### Region Suggestions
+
+The Region field offers standard choices in a full-width dropdown styled to
+match Type, and accepts custom text. Typing filters the choices; use the arrow
+keys and Enter to select, Escape to close, or Tab to keep the current text and
+continue. Clicking a recognized area of a sketch suggests a region such as
+**Right upper arm**.
+Suggestions follow an unsaved marker, including keyboard adjustments, until
+you edit the field. Typing a custom value, selecting a standard choice, or
+clearing the field preserves that choice through subsequent marker adjustments
+and failed saves. Existing saved regions, including blank values, are preserved.
+
+These are coarse suggestions from view-specific zones in the supplied SVGs;
+valid points on the anatomy outside those zones leave the automatic region blank.
+Review or refine the text as needed. The body front and back mappings use the
+subject's anatomical left and right; detailed head, hand, and foot sketches
+have their own mappings.
+
+The catalogue includes 90 standard regions, including left/right buttocks,
+shoulder blades, flanks, hips, elbows, wrists, ankles, palms, soles, and heels;
+each finger and toe on both sides; upper/lower abdomen; and facial features
+such as eyes, ears, cheeks, nose, mouth, forehead, and chin. Finger and toe
+suggestions use the detailed hand and foot views. Broader labels such as
+**Buttocks**, **Face**, and **Left hand (palmar)** remain available, and existing
+saved text is preserved when an observation is edited.
+
+`BodyRegion` provides standard string values for PHP consumers:
+
+```php
+use HumanExaminations\HumanExaminations\Enums\BodyRegion;
+
+$observation->update(['region' => BodyRegion::RightUpperArm->value]);
+$observation->update(['region' => BodyRegion::LeftButtock->value]);
+$observation->update(['region' => BodyRegion::RightIndexFinger->value]);
+$observation->update(['region' => 'Posterior right upper arm, near elbow']);
+```
+
+`region` remains a nullable string, with no enum cast or migration. The Vue
+workspace includes the choices by default. For custom interfaces,
+`resources/js/observationRegions.js` exports the `bodyRegions` catalogue and
+`suggestRegion({ sketch_id, x, y })`, which returns a standard label or `null`.
+The JSON catalogue in `resources/body-regions.json` is checked against the PHP
+enum. Suggestions are a frontend convenience; the models and HTTP routes
+preserve the region string supplied by the caller.
+
 #### Anatomical Views
 
-The workspace's default area includes an anatomical view selector and responsive
-SVG diagrams. It starts with the body front and back displayed together, side
-by side when there is room and stacked in narrower areas. The catalogue offers
+The workspace's default area includes **Full body**, **Head**, **Hands**, and
+**Feet** tabs with responsive SVG diagrams. Body front and back start together,
+side by side when there is room and stacked in narrower areas. The catalogue offers
 15 views:
 
 | Group | Views |
@@ -178,9 +222,11 @@ by side when there is room and stacked in narrower areas. The catalogue offers
 
 The diagrams preserve their original aspect ratios. The paired body drawings
 share the same display height and label the subject's anatomical sides. The
-selector offers one **Body · Front and back** choice; head, hand, and foot views
-remain individual choices. A host's existing default workspace slot still
-replaces this area.
+selected tab shows all sketches in that category in two columns when there is
+room, stacking in narrow panels. Dots mark categories containing mapped
+observations. Arrow Left/Right, Home, and End navigate and select tabs; Tab
+continues to the diagram panel. Selecting a mapped observation opens its
+category. A host's existing default workspace slot still replaces this area.
 
 For a standalone diagram, import
 `resources/js/components/AnatomicalViews.vue` from the installed package into
@@ -192,7 +238,9 @@ your Vite build. Its optional `v-model:view` accepts a stable view ID:
 
 An omitted or unknown ID displays the paired body diagrams. Both `body-front`
 and `body-back` select this paired display; each diagram retains its own sketch
-ID. Choosing the body option emits `body-front` through `v-model:view`.
+ID. Every stable view ID opens its category and displays the other views in that
+category too. Choosing a tab emits its first view ID through `v-model:view`
+(`body-front`, `head-front`, `hand-left-palmar`, or `foot-left-dorsal`).
 The catalogue in
 `resources/js/sketches.js` exports `sketchGroups` and the flat `sketches` list.
 Each view has `id`, `label`, `width`, `height`, and `src`; body views also have
@@ -200,7 +248,57 @@ Each view has `id`, `label`, `width`, `height`, and `src`; body views also have
 view. Vite builds the source SVGs into local assets and manages their URLs; the
 application does not fetch diagrams from the reference repository at runtime.
 
-View selection changes the display only; pin placement is not included yet.
+Saved observations appear as numbered markers on their own sketches. Click a
+marker or its list entry to select the observation and open its form; selecting
+a mapped list entry also opens the corresponding view.
+
+Markers and list numbers share a muted color for each observation type. The
+palette separates tattoos in deep blue, stab wounds in forest green, and
+unspecified findings in neutral gray. Gunshot wounds use deep wine, injuries
+use copper, bruises use lavender, and abrasions use ochre.
+The **Observation types** legend below the sketches
+labels the types used in the examination, including observations on other views
+or without locations and the current marker preview. Custom type names get
+stable generated colors; missing types use `Unspecified`. Numbers and accessible
+type labels remain available alongside color.
+
+With a saved examination, click or tap inside an anatomical outline to start an
+observation at that location. The bundled Vue component checks the SVG's filled
+anatomy, so surrounding space, gaps between limbs, and spaces between fingers
+cannot receive a new marker. An invalid click keeps the current draft unchanged
+and displays a warning toast at the bottom-right of the screen. Dismiss it with
+its close button; it also disappears after five seconds.
+Placement waits for the outline to load; if loading fails, the view shows a retry
+message. Observations can still be recorded without markers using **+**.
+For an existing observation without a marker, use **Place marker on a
+sketch** in the list, then choose a location. Unsaved markers have a dashed
+outline and remain previews until you save the observation. A failed save keeps
+both the form values and preview; Cancel discards the unsaved location. Editing
+an already mapped observation preserves its location.
+
+For keyboard placement, focus a sketch and press Enter or Space to place a
+preview at its center when that point is on the anatomy, or at an interior
+starting point otherwise. The draft marker receives focus. Arrow keys adjust it
+by 0.5% of the image; Shift reduces the step to 0.1%. Adjustments that leave the
+anatomical outline are rejected. Coordinates are measured against the image
+bounds, clamped to the image, and saved with six decimal
+places, so markers remain aligned when the diagrams resize or stack.
+
+Standalone `AnatomicalViews.vue` accepts `observations`, `selectedNumber`,
+`draftLocation`, `placementEnabled` (default false), and `disabled` props. It
+emits `place(location)` with `{ sketch_id, x, y }` and `select(number)`; the host
+owns the form, selection, and persistence. `draftLocation` may include a
+`number` for an existing unmarked observation and `type` to color the preview
+and include its type in the legend. Persisted markers remain
+selectable when placement is disabled, unless `disabled` is true. Incomplete or
+invalid locations are not drawn, and observations on other sketches remain in
+the list. Moving or clearing a saved marker and diagram zoom are follow-up
+features.
+
+The outline check applies to placing and adjusting drafts in the bundled Vue
+component. Models and write routes continue to validate the coordinate tuple
+and numeric range, allowing consuming applications to manage their own sketches.
+
 The workbench saves observations to the database. The reusable workspace keeps
 its local `v-model:observations` behavior by default; enable
 `persistent-observations` to delegate writes to your host page:
@@ -218,7 +316,8 @@ its local `v-model:observations` behavior by default; enable
 
 `save-observation` emits `(draft, complete)`, where `draft.id` is null for a new
 record and identifies the observation for an edit. Strip `id` from the HTTP
-payload and send the editable fields to the generated store or update URL.
+payload and send the editable fields, including `sketch_id`, `x`, and `y`, to
+the generated store or update URL. Keep all three location fields together.
 `delete-observation` emits `(observation, complete)`. Both handlers must call
 `complete()` after a successful response or `complete({ field: 'Message' })`
 after validation or transport failure. Pending writes disable observation
@@ -382,7 +481,8 @@ above.
 Create an examination, then use **+** in Observations to add findings. Edits and
 removals are saved through the package routes; refresh the workspace to reload
 its active observations from the database. Invalid saves keep the form open
-with error messages.
+with error messages. Click either body sketch to add a marker and finding, or
+use the list's placement action for an existing unmarked observation.
 
 `composer serve` and `composer build` reset the workbench database. To restart
 the server while keeping existing demo records, use:
@@ -397,21 +497,32 @@ running and start `npm run dev` in a second terminal.
 
 ## Changelog
 
-Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
+Please see [CHANGELOG][changelog] for more information on what has changed recently.
 
 ## Contributing
 
-Thank you for considering contributing to Human Examinations! Please review our [contributing guide](.github/CONTRIBUTING.md) to get started.
+Thank you for considering contributing to Human Examinations! Please review our [contributing guide][contributing-guide]
+to get started.
 
 ## Security Vulnerabilities
 
-Please review [our security policy](.github/SECURITY.md) on how to report security vulnerabilities.
+Please review [our security policy][our-security-policy] on how to report security vulnerabilities.
 
 ## Credits
 
-- [Sachin Pawaskar](https://github.com/spawaskar)
-- [All Contributors](../../contributors)
+- [Sachin Pawaskar][sachin-pawaskar]
+- [All Contributors][all-contributors]
 
 ## License
 
-Human Examinations is open-sourced software licensed under the [MIT license](LICENSE.md).
+Human Examinations is open-sourced software licensed under the [MIT license][mit-license].
+
+[changelog]: CHANGELOG.md
+[sachin-pawaskar]: https://github.com/SachinPawaskarUNO
+
+[all-contributors]: ../../contributors
+
+[our-security-policy]: .github/SECURITY.md
+
+[contributing-guide]: .github/CONTRIBUTING.md
+[mit-license]: LICENSE.md

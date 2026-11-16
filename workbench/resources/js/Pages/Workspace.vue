@@ -1,13 +1,13 @@
 <script setup>
-import { router } from '@inertiajs/vue3';
+import {router} from '@inertiajs/vue3';
 import HumanExaminationWorkspace from '../../../../resources/js/components/HumanExaminationWorkspace.vue';
 
 const props = defineProps({
-    observationTypes: { type: Array, default: () => [] },
-    examination: { type: Object, default: null },
-    examinationRoutes: { type: Object, required: true },
-    observations: { type: Array, default: () => [] },
-    observationRoutes: { type: Object, required: true },
+    observationTypes: {type: Array, default: () => []},
+    examination: {type: Object, default: null},
+    examinationRoutes: {type: Object, required: true},
+    observations: {type: Array, default: () => []},
+    observationRoutes: {type: Object, required: true},
 });
 
 // Receives the details entered in the component's "New examination" dialog.
@@ -16,15 +16,15 @@ function createExamination(details) {
 }
 
 // Saves edits from the Examination tab. The server sends back the updated examination.
-function saveExamination({ reference, examiner, date, notes }) {
+function saveExamination({reference, examiner, date, notes}) {
     if (!props.examination) {
         return;
     }
 
     router.patch(
         props.examinationRoutes.update,
-        { reference, examiner, date, notes },
-        { preserveScroll: true, preserveState: true },
+        {reference, examiner, date, notes},
+        {preserveScroll: true, preserveState: true},
     );
 }
 
@@ -35,7 +35,7 @@ function visitObservation(method, url, data, complete) {
         finished = true;
         complete(errors);
     };
-    const failed = () => finish({ _form: 'Unable to save these changes. Please try again.' });
+    const failed = () => finish({_form: 'Unable to save these changes. Please try again.'});
 
     if (!url) {
         failed();
@@ -50,8 +50,14 @@ function visitObservation(method, url, data, complete) {
         errorBag: 'observation',
         onSuccess: () => finish(),
         onError: (errors) => finish(errors),
-        onHttpException: () => { failed(); return false; },
-        onNetworkError: () => { failed(); return false; },
+        onHttpException: () => {
+            failed();
+            return false;
+        },
+        onNetworkError: () => {
+            failed();
+            return false;
+        },
         onCancel: failed,
         onFinish: () => {
             if (!finished) failed();
@@ -59,7 +65,7 @@ function visitObservation(method, url, data, complete) {
     });
 }
 
-function saveObservation({ id, ...attributes }, complete) {
+function saveObservation({id, ...attributes}, complete) {
     const method = id == null ? 'post' : 'patch';
     const url = id == null ? props.observationRoutes.store : props.observationRoutes.update[id];
     visitObservation(method, url, attributes, complete);
@@ -89,7 +95,7 @@ function deleteObservation(observation, complete) {
 
 <style scoped>
 .workbench {
-    max-width: 72rem;
+    max-width: 88rem;
     margin: 0 auto;
     padding: 2rem;
     font-family: system-ui, sans-serif;

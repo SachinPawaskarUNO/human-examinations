@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HumanExaminations\HumanExaminations\Tests\Feature;
 
+use HumanExaminations\HumanExaminations\Enums\BodyRegion;
 use HumanExaminations\HumanExaminations\Models\Examination;
 use HumanExaminations\HumanExaminations\Tests\TestCase;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -126,6 +127,75 @@ class ConfiguredWorkbenchTest extends TestCase
         $exam = Examination::create([]);
         $exam->observations()->create(['number' => 1, 'label' => 'Private finding']);
         $this->getJson(route('workbench.examinations.show', $exam))->assertForbidden();
+    }
+
+    public function test_standard_custom_and_cleared_regions_survive_workspace_reloads(): void
+    {
+        $exam = Examination::create([]);
+        $workspace = route('workbench.examinations.show', $exam);
+        $this->from($workspace)->post(route('demo.observations.store', $exam), [
+            'type' => 'Scar', 'region' => BodyRegion::RightUpperArm->value,
+            'sketch_id' => 'body-front', 'x' => 0.23, 'y' => 0.28,
+        ])->assertRedirect($workspace);
+        $observation = $exam->observations()->sole();
+
+        foreach (['Right upper arm', 'Posterior right upper arm, near elbow', null] as $region) {
+            $this->from($workspace)->patch(route('demo.observations.update', [$exam, $observation]), ['region' => $region])
+                ->assertRedirect($workspace);
+            $this->get($workspace)->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('observations.0.region', $region)
+                ->where('observations.0.sketch_id', 'body-front')
+                ->where('observations.0.x', '0.230000')->where('observations.0.y', '0.280000'));
+        }
+    }
+
+    public function test_specific_body_regions_reload_with_their_marker_locations(): void
+    {
+        $exam = Examination::create([]);
+        $workspace = route('workbench.examinations.show', $exam);
+        $examples = [
+            [BodyRegion::LeftButtock, 'body-back', 0.43, 0.46],
+            [BodyRegion::RightRingFinger, 'hand-right-dorsal', 0.26, 0.82],
+            [BodyRegion::LeftBigToe, 'foot-left-dorsal', 0.32, 0.92],
+        ];
+
+        foreach ($examples as $index => [$region, $sketch, $x, $y]) {
+            $this->from($workspace)->post(route('demo.observations.store', $exam), [
+                'type' => 'Scar', 'region' => $region->value,
+                'sketch_id' => $sketch, 'x' => $x, 'y' => $y,
+            ])->assertRedirect($workspace);
+            $this->get($workspace)->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('observations.'.$index.'.region', $region->value)
+                ->where('observations.'.$index.'.sketch_id', $sketch)
+                ->where('observations.'.$index.'.x', number_format($x, 6, '.', ''))
+                ->where('observations.'.$index.'.y', number_format($y, 6, '.', '')));
+        }
+
+        $this->assertSame(3, $exam->observations()->count());
+    }
+
+    public function test_marker_creation_and_initial_placement_reload_with_their_observations(): void
+    {
+        $exam = Examination::create([]);
+        $workspace = route('workbench.examinations.show', $exam);
+        $this->from($workspace)->post(route('demo.observations.store', $exam), [
+            'type' => 'Scar', 'label' => 'Back scar',
+            'sketch_id' => 'body-back', 'x' => 0.25, 'y' => 0.75,
+        ])->assertRedirect($workspace);
+
+        $unplaced = $exam->observations()->create(['number' => 2, 'type' => 'Tattoo', 'label' => 'Existing tattoo']);
+        $this->from($workspace)->patch(route('demo.observations.update', [$exam, $unplaced]), [
+            'sketch_id' => 'hand-left-palmar', 'x' => 0, 'y' => 1,
+        ])->assertRedirect($workspace);
+        $this->get($workspace)->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('observations.0.label', 'Back scar')
+            ->where('observations.0.sketch_id', 'body-back')
+            ->where('observations.0.x', '0.250000')->where('observations.0.y', '0.750000')
+            ->where('observations.1.label', 'Existing tattoo')
+            ->where('observations.1.sketch_id', 'hand-left-palmar')
+            ->where('observations.1.x', '0.000000')->where('observations.1.y', '1.000000'));
+        $this->assertSame(2, $unplaced->fresh()->number);
+        $this->assertSame('Tattoo', $unplaced->fresh()->type->value);
     }
 }
 

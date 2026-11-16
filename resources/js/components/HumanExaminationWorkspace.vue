@@ -1,16 +1,21 @@
 <script setup>
 import AnatomicalViews from './AnatomicalViews.vue';
+import RegionCombobox from './RegionCombobox.vue';
+import {getObservationLocation} from '../observationLocations.js';
+import {observationStyle} from '../observationTypes.js';
+import {bodyRegions, suggestRegion} from '../observationRegions.js';
+import {sketches} from '../sketches.js';
 
 const props = defineProps({
     // Observation types for the Type dropdown.
-    types: { type: Array, default: () => [] },
+    types: {type: Array, default: () => []},
     // The host handles persistence through save-observation/delete-observation events.
-    persistentObservations: { type: Boolean, default: false },
+    persistentObservations: {type: Boolean, default: false},
 });
 
 const emit = defineEmits(['new-examination', 'save-observation', 'delete-observation']);
 
-import { computed, ref } from 'vue';
+import {computed, nextTick, ref, useId} from 'vue';
 
 const examination = defineModel('examination', {
     type: Object,
@@ -67,19 +72,45 @@ function updateExamination(key, value) {
     };
 }
 
-const FIELDS = ['type', 'label', 'region', 'description', 'length_mm', 'width_mm'];
+const FIELDS = ['type', 'label', 'region', 'description', 'length_mm', 'width_mm', 'sketch_id', 'x', 'y'];
 const observationPending = ref(false);
 const observationErrors = ref({});
+const selectedNumber = ref(null);
+const activeView = ref('body-front');
+const anatomicalViews = ref(null);
+const observationForm = ref(null);
 const canEditObservations = computed(
     () => !props.persistentObservations || Boolean(examination.value.id),
 );
 
 // The observation being added or edited.
 const draft = ref(null);
+const regionEdited = ref(false);
+const regionInputId = `${useId()}-region`;
+const regionHelpId = `${regionInputId}-help`;
+const regionChoices = Object.values(bodyRegions);
+const draftHasSavedLocation = computed(() => Boolean(draft.value?.number != null
+    && getObservationLocation(observations.value.find((item) => item.number === draft.value.number)),
+));
+const placementEnabled = computed(() => canEditObservations.value
+    && !observationPending.value && !draftHasSavedLocation.value,
+);
+const draftLocation = computed(() => {
+    const location = getObservationLocation(draft.value);
+    return location && !draftHasSavedLocation.value
+        ? {...location, number: draft.value.number, type: draft.value.type}
+        : null;
+});
+const draftLocationLabel = computed(() => sketches.find((sketch) => sketch.id === draft.value?.sketch_id)?.label
+    ?? draft.value?.sketch_id,
+);
 
 function startNew() {
     if (observationPending.value || !canEditObservations.value) return;
     observationErrors.value = {};
+    selectedNumber.value = null;
+    regionEdited.value = false;
+    tab.value = 'observations';
     draft.value = {
         id: null,
         number: null,
@@ -89,17 +120,52 @@ function startNew() {
         description: null,
         length_mm: null,
         width_mm: null,
+        sketch_id: null,
+        x: null,
+        y: null,
     };
 }
 
 function edit(observation) {
     if (observationPending.value) return;
     observationErrors.value = {};
+    selectedNumber.value = observation.number;
+    // Saved values, including intentionally blank regions, belong to the user.
+    regionEdited.value = true;
+    tab.value = 'observations';
+    if (sketches.some((sketch) => sketch.id === observation.sketch_id)) {
+        activeView.value = observation.sketch_id;
+    }
     draft.value = {
         id: observation.id,
         number: observation.number,
-        ...Object.fromEntries(FIELDS.map((f) => [f, observation[f]])),
+        ...Object.fromEntries(FIELDS.map((f) => [f, observation[f] ?? null])),
     };
+}
+
+function selectObservation(number) {
+    if (observationPending.value) return;
+    const observation = observations.value.find((item) => item.number === number);
+    if (!observation) return;
+    edit(observation);
+    nextTick(() => observationForm.value?.querySelector('select, input, textarea')?.focus());
+}
+
+function beginPlacement(observation) {
+    if (observationPending.value || getObservationLocation(observation)) return;
+    edit(observation);
+    nextTick(() => anatomicalViews.value?.$el.querySelector('.he-diagram-map')?.focus());
+}
+
+function placeObservation(location) {
+    if (!placementEnabled.value) return;
+    const point = getObservationLocation(location);
+    if (!point) return;
+    if (!draft.value) startNew();
+    draft.value = {...draft.value, ...point};
+    if (!regionEdited.value) draft.value.region = suggestRegion(point);
+    activeView.value = point.sketch_id;
+    tab.value = 'observations';
 }
 
 function cancel() {
@@ -136,7 +202,7 @@ function save() {
     );
 
     if (props.persistentObservations) {
-        persistObservation('save-observation', { id: draft.value.id, ...values }, () => {
+        persistObservation('save-observation', {id: draft.value.id, ...values}, () => {
             draft.value = null;
         });
         return;
@@ -157,9 +223,10 @@ function save() {
                 ...values,
             },
         ];
+        selectedNumber.value = number;
     } else {
         observations.value = observations.value.map((o) =>
-            o.number === draft.value.number ? { ...o, ...values } : o,
+            o.number === draft.value.number ? {...o, ...values} : o,
         );
     }
 
@@ -173,10 +240,12 @@ function removeObservation(number) {
         if (!observation) return;
         persistObservation('delete-observation', observation, () => {
             if (draft.value?.number === number) cancel();
+            if (selectedNumber.value === number) selectedNumber.value = null;
         });
         return;
     }
     observations.value = observations.value.filter((o) => o.number !== number);
+    if (selectedNumber.value === number) selectedNumber.value = null;
 
     if (draft.value?.number === number) {
         draft.value = null;
@@ -200,8 +269,8 @@ function details(o) {
         <div class="he-toolbar">
             <div v-if="examination.id" class="he-current">
                 <strong>{{
-                    examination.reference || `Examination #${examination.id}`
-                }}</strong>
+                        examination.reference || `Examination #${examination.id}`
+                    }}</strong>
                 <span
                     v-if="examination.examiner || examination.date"
                     class="he-muted he-small"
@@ -221,7 +290,7 @@ function details(o) {
                 @click="openNewExamination"
             >
                 <svg class="he-icon" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M5 12h14M12 5v14" />
+                    <path d="M5 12h14M12 5v14"/>
                 </svg>
                 New Examination
             </button>
@@ -287,12 +356,22 @@ function details(o) {
         <div class="he-body">
             <section class="he-card he-area" aria-label="Workspace area">
                 <slot>
-                    <AnatomicalViews />
+                    <AnatomicalViews
+                        ref="anatomicalViews"
+                        v-model:view="activeView"
+                        :observations="observations"
+                        :selected-number="selectedNumber"
+                        :draft-location="draftLocation"
+                        :placement-enabled="placementEnabled"
+                        :disabled="observationPending"
+                        @place="placeObservation"
+                        @select="selectObservation"
+                    />
                 </slot>
             </section>
 
             <aside v-if="$slots.aside" class="he-card he-aside">
-                <slot name="aside" />
+                <slot name="aside"/>
             </aside>
 
             <section
@@ -343,7 +422,7 @@ function details(o) {
                             viewBox="0 0 24 24"
                             aria-hidden="true"
                         >
-                            <path d="M5 12h14M12 5v14" />
+                            <path d="M5 12h14M12 5v14"/>
                         </svg>
                     </button>
                 </div>
@@ -418,7 +497,7 @@ function details(o) {
                             <li v-for="(message, field) in observationErrors" :key="field">{{ message }}</li>
                         </ul>
                     </div>
-                    <form v-if="draft" class="he-form" @submit.prevent="save">
+                    <form v-if="draft" ref="observationForm" class="he-form" @submit.prevent="save">
                         <fieldset class="he-observation-fields" :disabled="observationPending">
                             <p class="he-form__title">
                                 {{
@@ -430,9 +509,9 @@ function details(o) {
 
                             <label class="he-field">
                                 <span
-                                    >Type
+                                >Type
                                     <abbr class="he-required" title="required"
-                                        >*</abbr
+                                    >*</abbr
                                     ></span
                                 >
                                 <select
@@ -473,16 +552,29 @@ function details(o) {
                                 />
                             </label>
 
-                            <label class="he-field">
-                                <span>Region</span>
-                                <input
+                            <div class="he-field">
+                                <label :for="regionInputId" class="he-field-label">Region</label>
+                                <RegionCombobox
+                                    :id="regionInputId"
                                     v-model="draft.region"
                                     name="region"
+                                    :options="regionChoices"
+                                    :disabled="observationPending"
+                                    :aria-describedby="regionHelpId"
                                     :aria-invalid="Boolean(observationErrors.region)"
-                                    class="he-input"
+                                    maxlength="255"
                                     placeholder="e.g. Right upper arm"
+                                    @edit="regionEdited = true"
                                 />
-                            </label>
+                                <small :id="regionHelpId" class="he-muted he-small">
+                                    <template v-if="draftLocation && !regionEdited">
+                                        {{
+                                            draft.region ? 'Suggested from marker. Edit to refine the location.' : 'No region suggested here. Enter a region if needed.'
+                                        }}
+                                    </template>
+                                    <template v-else>Choose a standard region or enter your own.</template>
+                                </small>
+                            </div>
 
                             <label class="he-field">
                                 <span>Description</span>
@@ -523,6 +615,14 @@ function details(o) {
                                 </label>
                             </div>
 
+                            <p class="he-muted he-small">
+                                <template v-if="getObservationLocation(draft)">
+                                    Marker: {{ draftLocationLabel }}.
+                                    <template v-if="draftLocation">Save to keep this location.</template>
+                                </template>
+                                <template v-else>Click a sketch to choose a marker location (optional).</template>
+                            </p>
+
                             <div class="he-form__actions">
                                 <button
                                     type="button"
@@ -552,20 +652,43 @@ function details(o) {
                             class="he-item"
                             :class="{
                                 'he-item--editing': draft?.number === o.number,
+                                'he-item--selected': selectedNumber === o.number,
                             }"
                         >
-                            <span class="he-badge">{{ o.number }}</span>
+                            <span class="he-badge" :style="observationStyle(o.type)">{{ o.number }}</span>
 
-                            <div class="he-item__text">
+                            <button
+                                type="button"
+                                class="he-item__text he-item__select"
+                                :aria-label="`Select observation ${o.number}`"
+                                :aria-pressed="selectedNumber === o.number"
+                                :disabled="observationPending"
+                                @click="selectObservation(o.number)"
+                            >
                                 <strong>{{
-                                    o.label ||
-                                    o.type ||
-                                    `Observation ${o.number}`
-                                }}</strong>
+                                        o.label ||
+                                        o.type ||
+                                        `Observation ${o.number}`
+                                    }}</strong>
                                 <small v-if="details(o)">{{
-                                    details(o)
-                                }}</small>
-                            </div>
+                                        details(o)
+                                    }}</small>
+                            </button>
+
+                            <button
+                                v-if="!getObservationLocation(o)"
+                                type="button"
+                                class="he-button he-button--ghost he-button--icon-sm"
+                                :aria-label="`Place observation ${o.number}`"
+                                title="Place marker on a sketch"
+                                :disabled="observationPending"
+                                @click="beginPlacement(o)"
+                            >
+                                <svg class="he-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/>
+                                    <circle cx="12" cy="10" r="3"/>
+                                </svg>
+                            </button>
 
                             <button
                                 type="button"
@@ -573,7 +696,7 @@ function details(o) {
                                 :aria-label="`Edit observation ${o.number}`"
                                 title="Edit observation"
                                 :disabled="observationPending"
-                                @click="edit(o)"
+                                @click="selectObservation(o.number)"
                             >
                                 <svg
                                     class="he-icon"
@@ -598,7 +721,7 @@ function details(o) {
                                     viewBox="0 0 24 24"
                                     aria-hidden="true"
                                 >
-                                    <path d="M18 6 6 18M6 6l12 12" />
+                                    <path d="M18 6 6 18M6 6l12 12"/>
                                 </svg>
                             </button>
                         </li>
@@ -614,14 +737,16 @@ function details(o) {
                                 <path
                                     d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"
                                 />
-                                <rect x="9" y="3" width="6" height="4" rx="1" />
-                                <path d="M9 12h6M9 16h4" />
+                                <rect x="9" y="3" width="6" height="4" rx="1"/>
+                                <path d="M9 12h6M9 16h4"/>
                             </svg>
                         </div>
                         <div>
                             <h3 class="he-empty__title">No observations yet</h3>
                             <p class="he-muted he-small">
-                                Use + to record the first observation.
+                                {{
+                                    canEditObservations ? 'Click a sketch or use + to record the first observation.' : 'Create an examination to start recording findings.'
+                                }}
                             </p>
                         </div>
                     </div>
@@ -721,7 +846,7 @@ function details(o) {
 .he-panel {
     flex-shrink: 0;
     align-self: flex-start;
-    width: 22rem;
+    width: 24rem;
 }
 
 /* Examination / Observations toggle */
@@ -762,7 +887,7 @@ function details(o) {
     padding: 1rem;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
     .he-body {
         flex-direction: column;
     }
@@ -890,7 +1015,8 @@ function details(o) {
     border-top: 1px solid var(--he-border);
 }
 
-.he-item--editing {
+.he-item--editing,
+.he-item--selected {
     background: var(--he-muted);
 }
 
@@ -902,8 +1028,8 @@ function details(o) {
     width: 1.5rem;
     height: 1.5rem;
     border-radius: 999px;
-    background: var(--he-primary);
-    color: var(--he-primary-foreground);
+    background: var(--he-observation-color);
+    color: var(--he-observation-foreground);
     font-size: 0.75rem;
     font-weight: 600;
 }
@@ -915,8 +1041,25 @@ function details(o) {
     min-width: 0;
 }
 
+.he-item__select {
+    align-items: flex-start;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.he-item__select:focus-visible {
+    outline: 2px solid var(--he-ring);
+    outline-offset: 3px;
+}
+
 .he-item__text strong,
 .he-item__text small {
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -991,7 +1134,8 @@ function details(o) {
     min-width: 0;
 }
 
-.he-field > span {
+.he-field > span,
+.he-field-label {
     color: var(--he-muted-foreground);
     font-size: 0.75rem;
     font-weight: 500;
@@ -1020,6 +1164,19 @@ function details(o) {
     font: inherit;
     font-size: 0.875rem;
     box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+
+select.he-input {
+    --he-dropdown-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+select.he-input {
+    appearance: none;
+    padding-right: 2rem;
+    background-image: var(--he-dropdown-chevron);
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1rem;
 }
 
 .he-textarea {
