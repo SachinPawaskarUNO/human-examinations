@@ -248,6 +248,51 @@ Each view has `id`, `label`, `width`, `height`, and `src`; body views also have
 view. Vite builds the source SVGs into local assets and manages their URLs; the
 application does not fetch diagrams from the reference repository at runtime.
 
+#### Zoom, Pan, and Diagram Height
+
+Use the **− / +** buttons or scroll over a sketch to zoom from **100% to 500%**.
+Each sketch has a small overlay with magnifying-glass zoom buttons, its current
+percentage, and a reset button. Scrolling zooms around the pointer in that sketch.
+Zoom and pan are independent for each view, so enlarging the front leaves the
+back unchanged. Drag with the left or right mouse button to pan. Dragging does
+not place or select a marker. **Reset view** restores only that sketch to 100%
+and centers it. Changing the anatomical category resets zoom and pan.
+
+The shared **Height** slider resizes all diagram viewports from **280 to 900 px**.
+Drawings retain their aspect ratios, paired body views keep the same height,
+and marker badges stay the same size. Browser and panel resizing refit the
+drawings and constrain panning to keep them reachable.
+
+Focus a viewport to use **+ / −** for zoom, **arrow keys** for pan, and **0** or
+**Home** to reset. The draft marker's arrow keys continue to adjust its anatomical
+location. Selecting or focusing an off-screen marker brings it into view.
+Placement uses the transformed image bounds, so saved coordinates remain
+normalized and accurate at any zoom, pan, or viewport size.
+
+#### Density View
+
+Switch **Pins / Density** above the diagrams to inspect mapped observation
+concentrations. Density replaces numbered pins with a smooth blue-to-red heatmap;
+overlapping locations appear warmer. All visible sketches use the same relative
+scale, so front/back concentrations can be compared. The scale is recalculated
+for the selected category and its observations; it is not an absolute count scale.
+
+Only complete mapped observations contribute. Unmapped findings and the unsaved
+marker preview are excluded. Heat is clipped to the anatomical outline, and the
+legend reports the mapped count or an empty state. Density represents location
+concentration, not observation type or severity.
+
+Zoom, pan, and the shared Height slider work in either mode. Switching modes
+preserves framing and draft form values. Density does not place or select markers;
+switch to Pins to edit the map. Selecting an observation or starting placement
+from the workspace sidebar returns to Pins automatically.
+
+Standalone hosts may use optional `v-model:mode` with `pins` (the default) or
+`density`. Mode changes emit `update:mode` and require no additional routes or
+database fields.
+
+#### Observation Markers
+
 Saved observations appear as numbered markers on their own sketches. Click a
 marker or its list entry to select the observation and open its form; selecting
 a mapped list entry also opens the corresponding view.
@@ -292,8 +337,7 @@ owns the form, selection, and persistence. `draftLocation` may include a
 and include its type in the legend. Persisted markers remain
 selectable when placement is disabled, unless `disabled` is true. Incomplete or
 invalid locations are not drawn, and observations on other sketches remain in
-the list. Moving or clearing a saved marker and diagram zoom are follow-up
-features.
+the list. Moving or clearing a saved marker remains follow-up work.
 
 The outline check applies to placing and adjusting drafts in the bundled Vue
 component. Models and write routes continue to validate the coordinate tuple
@@ -311,6 +355,7 @@ its local `v-model:observations` behavior by default; enable
     persistent-observations
     @save-observation="saveObservation"
     @delete-observation="deleteObservation"
+    @restore-observation="restoreObservation"
 />
 ```
 
@@ -318,11 +363,12 @@ its local `v-model:observations` behavior by default; enable
 record and identifies the observation for an edit. Strip `id` from the HTTP
 payload and send the editable fields, including `sketch_id`, `x`, and `y`, to
 the generated store or update URL. Keep all three location fields together.
-`delete-observation` emits `(observation, complete)`. Both handlers must call
-`complete()` after a successful response or `complete({ field: 'Message' })`
+`delete-observation` and `restore-observation` emit `(observation, complete)`.
+Restoration posts to the observation's restore URL with an empty payload.
+All three handlers must refresh the `observations` prop before calling
+`complete()` after a successful response, or call `complete({ field: 'Message' })`
 after validation or transport failure. Pending writes disable observation
-controls. Failed writes preserve the draft and display the returned errors;
-the host must refresh the `observations` prop from the server on success.
+controls. Failed writes preserve the draft and display the returned errors.
 Persistent mode requires an examination with an `id` before adding observations.
 The workbench page demonstrates these handlers with Inertia, including an
 `observation` error bag and cancellation/network failure handling.
@@ -330,6 +376,38 @@ The workbench page demonstrates these handlers with Inertia, including an
 Original SVG metadata and attribution are retained under `resources/sketches`;
 see its [source notes](resources/sketches/README.md). The supplied artwork
 identifies itself as extracted with permission from INTERPOL DVI Form 2023.
+
+#### Undo and Redo
+
+**Undo / Redo** reverses the last 50 saved observation additions, edits, removals,
+and initial marker placements in the current examination. A new change clears
+redo; saving an unchanged observation does not. Text inputs retain native undo.
+Controls sit beside the anatomical category tabs, above the shared Height slider.
+With focus outside editable fields, use **Ctrl/Cmd+Z** to undo,
+**Ctrl/Cmd+Shift+Z** or **Ctrl+Y** to redo.
+Shortcuts work across the page when one workspace is mounted; with multiple
+workspaces, focus must be inside the intended workspace. Custom workspace slots
+keep their history controls in the workspace toolbar. Standalone
+`AnatomicalViews.vue` exposes an optional `actions` slot beside its category tabs.
+
+Save or cancel an open observation form before using history. Controls are also
+disabled during requests. Failed writes keep the history position and can be
+retried. Switching examinations or reloading the page starts a fresh history;
+examination details, navigation, and unsaved drafts are outside this history.
+
+Local mode updates `v-model:observations`. Persistent mode uses the same save,
+delete, and restore callbacks and records changes only after success and the
+updated observation list. Undoing a removal restores the original soft-deleted
+record with its ID, number, measurements, region, and location. Redoing an undone
+creation also restores that record rather than allocating another number.
+Hosts must wire `restore-observation` and supply restoration URLs for deleted
+records; the workbench demonstrates this. A missing handler reports an unavailable
+action without leaving the workspace waiting.
+
+History compares editable fields before replaying a change. If the target differs
+from its expected state, history is cleared rather than replacing that state.
+This is session-local history, not a multi-user revision log or server-side
+optimistic locking.
 
 #### Observation Locations
 
@@ -393,6 +471,7 @@ With these settings, the package registers:
 | POST | `/human-examinations/examinations/{examination}/observations` | `human-examinations.observations.store` |
 | PATCH | `/human-examinations/examinations/{examination}/observations/{observation}` | `human-examinations.observations.update` |
 | DELETE | `/human-examinations/examinations/{examination}/observations/{observation}` | `human-examinations.observations.destroy` |
+| POST | `/human-examinations/examinations/{examination}/observations/{observation}/restore` | `human-examinations.observations.restore` |
 
 `prefix` can be a nested path such as `tools/forensics`, or an empty string.
 `name_prefix` includes its trailing dot and can also be empty. `middleware`
@@ -442,12 +521,16 @@ reach the page. The standalone workbench includes this middleware.
 
 Host code can use `CreateObservation::handle($examination, $attributes)`,
 `UpdateObservation::handle($observation, $attributes)`, and
-`DeleteObservation::handle($observation)` after its own authorization. These
+`DeleteObservation::handle($observation)`, and
+`RestoreObservation::handle($observation)` after its own authorization. These
 classes live under `HumanExaminations\HumanExaminations\Actions`. The create
 action allocates a number; updates preserve the ID, number, and examination.
 To customize them, extend the corresponding action and configure
 `actions.create_observation`, `actions.update_observation`, or
-`actions.delete_observation`. Keep the parent scope and numbering guarantees in
+`actions.delete_observation`, or `actions.restore_observation`. The restore route
+requires `update` authorization on an active parent and resolves only that
+parent's soft-deleted observations. Restore ignores replacement field payloads;
+active, missing, and other-parent records return 404. Keep the parent scope and numbering guarantees in
 custom implementations.
 
 Creating an examination redirects to the named `workspace_route`, when

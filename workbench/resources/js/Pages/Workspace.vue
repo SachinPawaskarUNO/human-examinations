@@ -74,6 +74,10 @@ function saveObservation({id, ...attributes}, complete) {
 function deleteObservation(observation, complete) {
     visitObservation('delete', props.observationRoutes.destroy[observation.id], {}, complete);
 }
+
+function restoreObservation(observation, complete) {
+    visitObservation('post', props.observationRoutes.restore?.[observation.id], {}, complete);
+}
 </script>
 
 <template>
@@ -89,6 +93,7 @@ function deleteObservation(observation, complete) {
             @new-examination="createExamination"
             @save-observation="saveObservation"
             @delete-observation="deleteObservation"
+            @restore-observation="restoreObservation"
         />
     </main>
 </template>

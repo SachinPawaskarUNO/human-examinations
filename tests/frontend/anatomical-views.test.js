@@ -73,6 +73,33 @@ test('the default view offers category tabs and both body diagrams', async () =>
     assert.match(html, /Anatomical left and right refer to the subject\./);
 });
 
+test('anatomy offers zoom, reset, height, and keyboard-accessible viewport controls', async () => {
+    const html = await render(AnatomicalViews);
+    for (const label of ['Zoom in', 'Zoom out', 'Reset view', 'Diagram height']) {
+        assert.ok(html.includes(`aria-label="${label}"`), label);
+    }
+    assert.match(html, /100%/);
+    assert.match(html, /type="range"[^>]*min="280"[^>]*max="900"/);
+    assert.equal([...html.matchAll(/data-viewport="body-(?:front|back)"/g)].length, 2);
+    assert.match(html, /Scroll to zoom/);
+    assert.match(html, /right-drag/);
+    for (const id of ['body-front', 'body-back']) {
+        const figure = html.match(new RegExp(`<figure\\b[^>]*data-sketch="${id}"[^>]*>[\\s\\S]*?<\\/figure>`))[0];
+        assert.match(figure, /zoom controls/);
+        assert.match(figure, /aria-label="Zoom in"/);
+        assert.match(figure, /aria-label="Zoom out"/);
+        assert.match(figure, /aria-label="Reset view"/);
+        assert.match(figure, /<circle\b/);
+    }
+    assert.equal([...html.matchAll(/aria-label="Zoom level"/g)].length, 2);
+    assert.equal([...html.matchAll(/aria-label="Diagram height"/g)].length, 1);
+
+    const disabled = await render(AnatomicalViews, {disabled: true});
+    for (const label of ['Zoom in', 'Zoom out', 'Reset view', 'Diagram height']) {
+        assert.match(disabled, new RegExp(`<(?:button|input)\\b[^>]*aria-label="${label}"[^>]*disabled`));
+    }
+});
+
 test('each stable view ID selects the corresponding diagram and aspect ratio', async () => {
     for (const sketch of sketches) {
         const html = await render(AnatomicalViews, {view: sketch.id});
@@ -81,6 +108,26 @@ test('each stable view ID selects the corresponding diagram and aspect ratio', a
         assert.ok(html.includes(`src="${sketch.src}"`), sketch.id);
         assert.ok(html.includes(`--he-sketch-ratio:${sketch.width / sketch.height}`), sketch.id);
     }
+});
+
+test('density mode replaces pins with mapped-only heatmaps and a density legend', async () => {
+    const observations = [
+        {number: 1, type: 'Scar', sketch_id: 'body-front', x: 0.5, y: 0.4},
+        {number: 2, type: 'Tattoo', sketch_id: 'body-back', x: 0.5, y: 0.3},
+        {number: 3, type: 'Scar'},
+    ];
+    const html = await render(AnatomicalViews, {mode: 'density', placementEnabled: true, observations, draftLocation: {sketch_id: 'body-front', x: 0.4, y: 0.5}});
+    assert.match(html, /aria-label="Density"[^>]*aria-pressed="true"/);
+    assert.match(html, /data-heatmap="body-front"/);
+    assert.match(html, /data-heatmap="body-back"/);
+    assert.match(html, /2 mapped observations/);
+    assert.match(html, /Relative density/);
+    assert.doesNotMatch(html, /data-observation=|data-draft-marker|Click inside an anatomical outline/);
+    assert.match(html, /zoom controls/);
+    const empty = await render(AnatomicalViews, {mode: 'density'});
+    assert.match(empty, /No mapped observations in these views/);
+    const locked = await render(AnatomicalViews, {disabled: true});
+    assert.match(locked, /aria-label="Density"[^>]*disabled/);
 });
 
 test('an unknown view ID falls back to the paired body diagrams', async () => {
@@ -151,6 +198,18 @@ test('persistent observations require a saved examination, while local mode rema
 
     const local = await render(Workspace);
     assert.doesNotMatch(local, /aria-label="Add observation"[^>]*disabled/);
+});
+
+test('the workspace exposes initially disabled history controls and keyboard shortcuts', async () => {
+    const html = await render(Workspace);
+    assert.match(html, /aria-label="Observation history"/);
+    assert.match(html, /aria-label="Undo"[^>]*aria-keyshortcuts="Control\+Z Meta\+Z"[^>]*disabled/);
+    assert.match(html, /aria-label="Redo"[^>]*aria-keyshortcuts="[^"]*Control\+Y"[^>]*disabled/);
+    const toolbar = html.match(/<div class="he-toolbar"[^>]*>[\s\S]*?<\/button>\s*<\/div>/)[0];
+    assert.doesNotMatch(toolbar, /aria-label="Undo"/);
+    assert.match(html, /class="he-view-actions"[^>]*>[\s\S]*?aria-label="Undo"/);
+    const custom = await render(Workspace, {}, {default: () => h('p', 'Custom map')});
+    assert.match(custom, /aria-label="Undo"/);
 });
 
 test('numbered markers render on their own sketch with numeric positions and selection', async () => {

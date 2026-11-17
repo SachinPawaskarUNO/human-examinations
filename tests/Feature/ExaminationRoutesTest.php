@@ -45,12 +45,13 @@ class ExaminationRoutesTest extends TestCase
 
         $this->postJson('/human-examinations/examinations')->assertNotFound();
         $this->patchJson('/human-examinations/examinations/1')->assertNotFound();
-        foreach (['store', 'update', 'destroy'] as $action) {
+        foreach (['store', 'update', 'destroy', 'restore'] as $action) {
             $this->assertFalse(Route::has('human-examinations.observations.'.$action));
         }
         $this->postJson('/human-examinations/examinations/1/observations')->assertNotFound();
         $this->patchJson('/human-examinations/examinations/1/observations/1')->assertNotFound();
         $this->deleteJson('/human-examinations/examinations/1/observations/1')->assertNotFound();
+        $this->postJson('/human-examinations/examinations/1/observations/1/restore')->assertNotFound();
         $this->assertDatabaseCount('human_examinations', 0);
     }
 

@@ -7,6 +7,7 @@ namespace HumanExaminations\HumanExaminations;
 use HumanExaminations\HumanExaminations\Actions\CreateExamination;
 use HumanExaminations\HumanExaminations\Actions\CreateObservation;
 use HumanExaminations\HumanExaminations\Actions\DeleteObservation;
+use HumanExaminations\HumanExaminations\Actions\RestoreObservation;
 use HumanExaminations\HumanExaminations\Actions\UpdateExamination;
 use HumanExaminations\HumanExaminations\Actions\UpdateObservation;
 use HumanExaminations\HumanExaminations\Console\Commands\HumanExaminationsCommand;
@@ -56,6 +57,11 @@ class HumanExaminationsServiceProvider extends ServiceProvider
             $class = config('human-examinations.actions.delete_observation', DeleteObservation::class);
 
             return $class === DeleteObservation::class ? new DeleteObservation : app($class);
+        });
+        $this->app->bind(RestoreObservation::class, function (): RestoreObservation {
+            $class = config('human-examinations.actions.restore_observation', RestoreObservation::class);
+
+            return $class === RestoreObservation::class ? new RestoreObservation : app($class);
         });
     }
 

@@ -6,6 +6,7 @@ namespace HumanExaminations\HumanExaminations\Http\Controllers;
 
 use HumanExaminations\HumanExaminations\Actions\CreateObservation;
 use HumanExaminations\HumanExaminations\Actions\DeleteObservation;
+use HumanExaminations\HumanExaminations\Actions\RestoreObservation;
 use HumanExaminations\HumanExaminations\Actions\UpdateObservation;
 use HumanExaminations\HumanExaminations\Models\Examination;
 use HumanExaminations\HumanExaminations\Models\Observation;
@@ -41,6 +42,17 @@ class ObservationController
         Gate::authorize('update', $examination);
 
         $deleteObservation->handle($observation);
+
+        return back();
+    }
+
+    public function restore(Examination $examination, string $observation, RestoreObservation $restoreObservation): RedirectResponse
+    {
+        Gate::authorize('update', $examination);
+
+        // Resolve the deleted child through its active parent; never broaden parent binding.
+        $deleted = $examination->observations()->onlyTrashed()->findOrFail($observation);
+        $restoreObservation->handle($deleted);
 
         return back();
     }
