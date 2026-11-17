@@ -26,8 +26,15 @@ enum BodyRegion: string
     case Neck = 'Neck';
     case LeftShoulder = 'Left shoulder';
     case RightShoulder = 'Right shoulder';
+    case LeftCollarbone = 'Left collarbone';
+    case RightCollarbone = 'Right collarbone';
+    case UpperChest = 'Upper chest';
     case LeftChest = 'Left chest';
     case RightChest = 'Right chest';
+    case LeftNipple = 'Left nipple';
+    case RightNipple = 'Right nipple';
+    case LeftArmpit = 'Left armpit';
+    case RightArmpit = 'Right armpit';
     case Abdomen = 'Abdomen';
     case UpperAbdomen = 'Upper abdomen';
     case LowerAbdomen = 'Lower abdomen';
@@ -40,7 +47,7 @@ enum BodyRegion: string
     case Pelvis = 'Pelvis';
     case LeftHip = 'Left hip';
     case RightHip = 'Right hip';
-    case Buttocks = 'Buttocks';
+    case Groin = 'Groin';
     case LeftButtock = 'Left buttock';
     case RightButtock = 'Right buttock';
     case LeftUpperArm = 'Left upper arm';
@@ -71,6 +78,8 @@ enum BodyRegion: string
     case RightLittleFinger = 'Right little finger';
     case LeftThigh = 'Left thigh';
     case RightThigh = 'Right thigh';
+    case LeftInnerThigh = 'Left inner thigh';
+    case RightInnerThigh = 'Right inner thigh';
     case LeftKnee = 'Left knee';
     case RightKnee = 'Right knee';
     case LeftLowerLeg = 'Left lower leg';

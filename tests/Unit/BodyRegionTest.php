@@ -26,7 +26,14 @@ it('offers specific sided regions while retaining the broader labels', function 
         ->and(BodyRegion::LeftWrist->value)->toBe('Left wrist')
         ->and(BodyRegion::RightHeel->value)->toBe('Right heel')
         ->and(BodyRegion::Forehead->value)->toBe('Forehead')
-        ->and(BodyRegion::Buttocks->value)->toBe('Buttocks')
+        ->and(BodyRegion::Groin->value)->toBe('Groin')
+        ->and(BodyRegion::LeftInnerThigh->value)->toBe('Left inner thigh')
+        ->and(BodyRegion::RightInnerThigh->value)->toBe('Right inner thigh')
+        ->and(BodyRegion::LeftNipple->value)->toBe('Left nipple')
+        ->and(BodyRegion::RightNipple->value)->toBe('Right nipple')
+        ->and(BodyRegion::UpperChest->value)->toBe('Upper chest')
+        ->and(BodyRegion::LeftCollarbone->value)->toBe('Left collarbone')
+        ->and(BodyRegion::RightArmpit->value)->toBe('Right armpit')
         ->and(BodyRegion::LeftHandPalmar->value)->toBe('Left hand (palmar)')
         ->and(BodyRegion::Face->value)->toBe('Face');
 });

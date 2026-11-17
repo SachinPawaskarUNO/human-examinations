@@ -173,19 +173,26 @@ you edit the field. Typing a custom value, selecting a standard choice, or
 clearing the field preserves that choice through subsequent marker adjustments
 and failed saves. Existing saved regions, including blank values, are preserved.
 
-These are coarse suggestions from view-specific zones in the supplied SVGs;
-valid points on the anatomy outside those zones leave the automatic region blank.
+All 15 views cover their filled anatomical outlines. Specific feature zones take
+priority, with broader anatomical regions filling the spaces between them.
+The SVG surface bounds exclude background and gaps between limbs or digits.
+Head and foot zones include ear rims, top-view ears, and toe edges. Nostrils
+suggest **Nose**. Nipple zones follow the front SVG circles with 50% larger radii.
+Full-body front/back views also distinguish left/right ears, while the remaining
+head area retains the broader **Head** suggestion.
 Review or refine the text as needed. The body front and back mappings use the
 subject's anatomical left and right; detailed head, hand, and foot sketches
 have their own mappings.
 
-The catalogue includes 90 standard regions, including left/right buttocks,
+The catalogue includes 99 standard regions, including groin, left/right inner
+thighs, nipples, collarbones, armpits, upper chest, and left/right buttocks;
 shoulder blades, flanks, hips, elbows, wrists, ankles, palms, soles, and heels;
 each finger and toe on both sides; upper/lower abdomen; and facial features
 such as eyes, ears, cheeks, nose, mouth, forehead, and chin. Finger and toe
 suggestions use the detailed hand and foot views. Broader labels such as
-**Buttocks**, **Face**, and **Left hand (palmar)** remain available, and existing
-saved text is preserved when an observation is edited.
+**Face** and **Left hand (palmar)** remain available. The general `Buttocks` enum
+case/choice is replaced by `Groin`; left/right buttocks remain separate choices.
+Existing saved region text, including `Buttocks`, is preserved when edited.
 
 `BodyRegion` provides standard string values for PHP consumers:
 
@@ -194,6 +201,7 @@ use HumanExaminations\HumanExaminations\Enums\BodyRegion;
 
 $observation->update(['region' => BodyRegion::RightUpperArm->value]);
 $observation->update(['region' => BodyRegion::LeftButtock->value]);
+$observation->update(['region' => BodyRegion::Groin->value]);
 $observation->update(['region' => BodyRegion::RightIndexFinger->value]);
 $observation->update(['region' => 'Posterior right upper arm, near elbow']);
 ```

@@ -1,13 +1,18 @@
 import catalogue from '../body-regions.json' with {type: 'json'};
+import tracedSurfaces from '../region-surfaces.json' with {type: 'json'};
 import {getObservationLocation} from './observationLocations.js';
 
 export const bodyRegions = Object.freeze(catalogue);
 
 const mirror = (polygon) => polygon.map(([x, y]) => [1 - x, y]);
 const box = (left, top, right, bottom) => [[left, top], [right, top], [right, bottom], [left, bottom]];
+const ellipse = ({x, y, rx, ry}) => Array.from({length: 64}, (_, i) => {
+    const angle = i / 64 * Math.PI * 2;
+    return [x + Math.cos(angle) * rx, y + Math.sin(angle) * ry];
+});
 
-// Coarse suggestion zones traced against the original SVG view boxes. Gaps are
-// intentional: white space and uncertain boundaries should not invent anatomy.
+// Feature zones are normalized to the original SVG view boxes. Every view is
+// bounded by its SVG fill; broader fallbacks cover the spaces between features.
 const shoulder = [[0.24, 0.19], [0.3, 0.175], [0.34, 0.195], [0.3, 0.23], [0.2, 0.23]];
 const upperArm = [[0.19, 0.235], [0.265, 0.235], [0.29, 0.32], [0.275, 0.36], [0.175, 0.36]];
 const forearm = [[0.175, 0.365], [0.265, 0.365], [0.235, 0.43], [0.19, 0.505], [0.12, 0.505], [0.13, 0.43]];
@@ -20,9 +25,26 @@ const foot = [[0.325, 0.905], [0.395, 0.905], [0.455, 0.98], [0.43, 0.99], [0.31
 function bodyMap(front) {
     const imageLeft = front ? 'Right' : 'Left';
     const imageRight = front ? 'Left' : 'Right';
+    const headSurface = tracedSurfaces.outlines[front ? 'body-front' : 'body-back'];
     return [
-        ['Head', [[0.45, 0.015], [0.56, 0.015], [0.61, 0.06], [0.6, 0.095], [0.55, 0.12], [0.45, 0.12], [0.36, 0.08], [0.39, 0.04]]],
+        ...surfaceDetails(headSurface, [
+            [imageLeft + 'Ear', front ? box(0.35, 0.06, 0.389, 0.092) : box(0.365, 0.07, 0.402, 0.098)],
+            [imageRight + 'Ear', front ? box(0.583, 0.056, 0.62, 0.09) : box(0.578, 0.069, 0.61, 0.095)],
+        ]),
+        ['Head', box(0, 0, 1, 0.12)],
+        ...(front ? [
+            ...Object.entries(tracedSurfaces.landmarks['body-front']).map(([name, bounds]) => [name, ellipse(bounds)]),
+            ['RightCollarbone', box(0.365, 0.16, 0.485, 0.195)],
+            ['LeftCollarbone', box(0.515, 0.16, 0.635, 0.195)],
+            ['Groin', [[0.415, 0.45], [0.585, 0.45], [0.60, 0.485], [0.54, 0.53], [0.50, 0.555], [0.46, 0.53], [0.40, 0.485]]],
+        ] : [['Groin', box(0.485, 0.425, 0.515, 0.53)]]),
         ['Neck', [[0.435, 0.125], [0.56, 0.125], [0.59, 0.16], [0.58, 0.18], [0.41, 0.18], [0.42, 0.16]]],
+        ...[
+            ['Armpit', ellipse({x: 0.30, y: 0.26, rx: 0.025, ry: 0.038})],
+            ['InnerThigh', [[0.425, 0.52], [0.5, 0.52], [0.5, 0.675], [0.39, 0.675], [0.41, 0.60]]],
+        ].flatMap(([region, polygon]) => [
+            [imageLeft + region, polygon], [imageRight + region, mirror(polygon)],
+        ]),
         ...[
             ['Elbow', box(0.175, 0.34, 0.28, 0.39)],
             ['Wrist', box(0.12, 0.485, 0.21, 0.53)],
@@ -33,6 +55,7 @@ function bodyMap(front) {
             [imageLeft + region, polygon], [imageRight + region, mirror(polygon)],
         ]),
         ...(front ? [
+            ['UpperChest', box(0.34, 0.18, 0.66, 0.235)],
             ['RightChest', [[0.31, 0.235], [0.495, 0.235], [0.495, 0.315], [0.32, 0.315]]],
             ['LeftChest', [[0.505, 0.235], [0.69, 0.235], [0.68, 0.315], [0.505, 0.315]]],
             ['UpperAbdomen', box(0.34, 0.32, 0.66, 0.36)],
@@ -40,13 +63,13 @@ function bodyMap(front) {
             ['Abdomen', [[0.32, 0.32], [0.68, 0.32], [0.67, 0.405], [0.33, 0.405]]],
             ['Pelvis', [[0.33, 0.41], [0.67, 0.41], [0.66, 0.495], [0.52, 0.515], [0.48, 0.515], [0.34, 0.495]]],
         ] : [
-            ['LeftShoulderBlade', box(0.32, 0.235, 0.465, 0.325)],
-            ['RightShoulderBlade', box(0.535, 0.235, 0.68, 0.325)],
+            ['LeftShoulderBlade', box(0.32, 0.205, 0.465, 0.325)],
+            ['RightShoulderBlade', box(0.535, 0.205, 0.68, 0.325)],
             ['UpperBack', [[0.3, 0.235], [0.7, 0.235], [0.675, 0.33], [0.325, 0.33]]],
             ['LowerBack', [[0.325, 0.335], [0.675, 0.335], [0.67, 0.42], [0.33, 0.42]]],
             ['LeftButtock', [[0.34, 0.425], [0.495, 0.425], [0.495, 0.505], [0.34, 0.49]]],
             ['RightButtock', [[0.505, 0.425], [0.66, 0.425], [0.66, 0.49], [0.505, 0.505]]],
-            ['Buttocks', [[0.33, 0.425], [0.67, 0.425], [0.66, 0.495], [0.5, 0.51], [0.34, 0.495]]],
+            ['Groin', [[0.33, 0.425], [0.67, 0.425], [0.66, 0.495], [0.5, 0.51], [0.34, 0.495]]],
         ]),
         ...[
             ['Shoulder', shoulder], ['UpperArm', upperArm], ['Forearm', forearm],
@@ -57,14 +80,30 @@ function bodyMap(front) {
     ];
 }
 
-const headFront = [[0.5, 0.035], [0.73, 0.07], [0.87, 0.2], [0.9, 0.4], [0.96, 0.42], [0.91, 0.57], [0.82, 0.6], [0.77, 0.71], [0.62, 0.79], [0.5, 0.8], [0.38, 0.77], [0.23, 0.69], [0.18, 0.6], [0.1, 0.58], [0.05, 0.42], [0.1, 0.4], [0.12, 0.22], [0.2, 0.12], [0.34, 0.06]];
-const headBack = [[0.5, 0.03], [0.75, 0.1], [0.9, 0.25], [0.94, 0.5], [0.88, 0.62], [0.81, 0.66], [0.8, 0.7], [0.2, 0.7], [0.17, 0.65], [0.1, 0.6], [0.04, 0.42], [0.09, 0.4], [0.11, 0.23], [0.23, 0.1]];
-const profile = [[0.15, 0.3], [0.17, 0.22], [0.27, 0.09], [0.44, 0.035], [0.64, 0.04], [0.81, 0.1], [0.92, 0.2], [0.96, 0.36], [0.96, 0.48], [0.87, 0.6], [0.76, 0.7], [0.71, 0.79], [0.29, 0.79], [0.17, 0.77], [0.12, 0.72], [0.12, 0.66], [0.08, 0.63], [0.09, 0.6], [0.07, 0.57], [0.11, 0.54], [0.04, 0.52], [0.035, 0.48], [0.13, 0.38]];
-const scalp = [[0.5, 0.03], [0.6, 0.08], [0.76, 0.1], [0.88, 0.22], [0.93, 0.35], [0.96, 0.47], [0.88, 0.62], [0.77, 0.73], [0.61, 0.81], [0.4, 0.83], [0.24, 0.78], [0.13, 0.66], [0.06, 0.52], [0.07, 0.36], [0.14, 0.2], [0.25, 0.1], [0.4, 0.08]];
-const palm = [[0.29, 0.205], [0.73, 0.205], [0.78, 0.27], [0.93, 0.35], [0.94, 0.47], [0.96, 0.62], [0.94, 0.66], [0.89, 0.66], [0.85, 0.62], [0.8, 0.47], [0.75, 0.46], [0.71, 0.87], [0.7, 0.94], [0.64, 0.96], [0.6, 0.94], [0.59, 0.61], [0.55, 0.9], [0.52, 0.97], [0.47, 0.98], [0.41, 0.96], [0.4, 0.91], [0.43, 0.61], [0.39, 0.6], [0.35, 0.9], [0.31, 0.94], [0.25, 0.92], [0.23, 0.88], [0.26, 0.58], [0.23, 0.58], [0.12, 0.77], [0.07, 0.8], [0.04, 0.78], [0.05, 0.74], [0.15, 0.58], [0.17, 0.5], [0.2, 0.35], [0.24, 0.26]];
-const dorsalHand = [[0.39, 0.205], [0.82, 0.205], [0.87, 0.32], [0.9, 0.52], [0.95, 0.71], [0.93, 0.77], [0.88, 0.77], [0.84, 0.57], [0.8, 0.54], [0.79, 0.86], [0.77, 0.93], [0.73, 0.94], [0.69, 0.9], [0.68, 0.63], [0.65, 0.59], [0.63, 0.95], [0.61, 0.98], [0.56, 0.98], [0.54, 0.94], [0.52, 0.61], [0.49, 0.65], [0.45, 0.9], [0.41, 0.94], [0.37, 0.91], [0.36, 0.86], [0.39, 0.52], [0.36, 0.48], [0.32, 0.53], [0.22, 0.61], [0.14, 0.64], [0.07, 0.63], [0.04, 0.6], [0.1, 0.53], [0.2, 0.4], [0.25, 0.29], [0.33, 0.24]];
-const dorsalFoot = [[0.3, 0.055], [0.5, 0.03], [0.66, 0.04], [0.8, 0.08], [0.84, 0.13], [0.84, 0.2], [0.87, 0.23], [0.84, 0.3], [0.88, 0.42], [0.92, 0.61], [0.9, 0.73], [0.92, 0.8], [0.88, 0.83], [0.81, 0.83], [0.81, 0.88], [0.74, 0.89], [0.72, 0.93], [0.65, 0.94], [0.59, 0.95], [0.51, 0.96], [0.43, 0.98], [0.32, 0.97], [0.22, 0.91], [0.13, 0.79], [0.1, 0.7], [0.13, 0.63], [0.12, 0.55], [0.16, 0.43], [0.2, 0.29], [0.23, 0.22], [0.23, 0.13], [0.25, 0.08]];
-const plantarFoot = [[0.3, 0.045], [0.53, 0.03], [0.71, 0.05], [0.78, 0.08], [0.8, 0.18], [0.8, 0.31], [0.83, 0.43], [0.94, 0.63], [0.93, 0.72], [0.93, 0.82], [0.9, 0.89], [0.86, 0.94], [0.76, 0.98], [0.64, 0.98], [0.59, 0.94], [0.52, 0.96], [0.45, 0.95], [0.38, 0.93], [0.32, 0.92], [0.27, 0.88], [0.2, 0.86], [0.13, 0.82], [0.1, 0.76], [0.1, 0.65], [0.07, 0.62], [0.07, 0.56], [0.12, 0.44], [0.14, 0.35], [0.14, 0.16], [0.18, 0.08]];
+function bodyFallback({sketch_id, x, y}) {
+    const front = sketch_id === 'body-front';
+    const side = x < 0.5 ? (front ? 'Right' : 'Left') : (front ? 'Left' : 'Right');
+    if (y < 0.12) return 'Head';
+    if (y < 0.18 && x > 0.4 && x < 0.6) return 'Neck';
+    if (y < 0.235) return x > 0.36 && x < 0.64 ? (front ? 'UpperChest' : 'UpperBack') : side + 'Shoulder';
+    const outsideTorso = y < 0.43 ? x < 0.315 || x > 0.685 : x < 0.29 || x > 0.71;
+    if (y < 0.61 && outsideTorso) {
+        if (y < 0.34) return side + 'UpperArm';
+        if (y < 0.39) return side + 'Elbow';
+        if (y < 0.485) return side + 'Forearm';
+        if (y < 0.53) return side + 'Wrist';
+        return side + 'Hand';
+    }
+    if (y < 0.32) return front ? side + 'Chest' : 'UpperBack';
+    if (y < 0.405) return front ? (y < 0.36 ? 'UpperAbdomen' : 'LowerAbdomen') : 'LowerBack';
+    if (y < 0.52) return front ? 'Pelvis' : side + 'Buttock';
+    if (y < 0.685) return side + 'Thigh';
+    if (y < 0.74) return side + 'Knee';
+    if (y < 0.895) return side + 'LowerLeg';
+    if (y < 0.935) return side + 'Ankle';
+    return side + 'Foot';
+}
+
 
 // Clip detailed suggestions to their broader surface so finger/toe gaps do not
 // acquire labels. The placement component separately checks the exact SVG fill.
@@ -74,7 +113,7 @@ function surfaceDetails(surface, regions) {
 
 function handMap(side, palmar) {
     const orient = side === 'Right' ? mirror : (polygon) => polygon;
-    const surface = orient(palmar ? palm : dorsalHand);
+    const surface = tracedSurfaces.outlines[`hand-${side.toLowerCase()}-${palmar ? 'palmar' : 'dorsal'}`];
     const fingers = palmar ? [
         ['Thumb', box(0.76, 0.42, 0.98, 0.68)],
         ['IndexFinger', box(0.59, 0.57, 0.75, 0.97)],
@@ -99,21 +138,21 @@ function handMap(side, palmar) {
 
 function footMap(side, plantar) {
     const orient = side === 'Right' ? mirror : (polygon) => polygon;
-    const surface = orient(plantar ? plantarFoot : dorsalFoot);
+    const surface = tracedSurfaces.outlines[`foot-${side.toLowerCase()}-${plantar ? 'plantar' : 'dorsal'}`];
     const toes = plantar ? [
-        ['BigToe', box(0.6, 0.78, 0.96, 0.99)],
-        ['SecondToe', box(0.43, 0.8, 0.6, 0.97)],
-        ['ThirdToe', box(0.33, 0.78, 0.43, 0.95)],
-        ['FourthToe', box(0.24, 0.75, 0.33, 0.92)],
-        ['LittleToe', box(0.1, 0.7, 0.24, 0.87)],
+        ['BigToe', box(0.60, 0.78, 1, 1)],
+        ['SecondToe', box(0.43, 0.8, 0.60, 1)],
+        ['ThirdToe', box(0.32, 0.78, 0.43, 0.98)],
+        ['FourthToe', box(0.24, 0.75, 0.33, 0.96)],
+        ['LittleToe', box(0.07, 0.7, 0.24, 0.94)],
         ['Heel', box(0.2, 0.04, 0.78, 0.29)],
         ['Sole', box(0.17, 0.29, 0.82, 0.76)],
     ] : [
-        ['BigToe', box(0.2, 0.82, 0.43, 0.99)],
-        ['SecondToe', box(0.43, 0.83, 0.59, 0.98)],
-        ['ThirdToe', box(0.59, 0.81, 0.72, 0.96)],
-        ['FourthToe', box(0.72, 0.77, 0.83, 0.91)],
-        ['LittleToe', box(0.83, 0.73, 0.95, 0.86)],
+        ['BigToe', box(0.05, 0.80, 0.43, 1)],
+        ['SecondToe', box(0.40, 0.82, 0.59, 0.99)],
+        ['ThirdToe', box(0.575, 0.80, 0.73, 0.97)],
+        ['FourthToe', box(0.715, 0.765, 0.84, 0.93)],
+        ['LittleToe', box(0.815, 0.72, 0.97, 0.86)],
     ];
     return [
         ...surfaceDetails(surface, toes.map(([region, polygon]) => [side + region, orient(polygon)])),
@@ -121,43 +160,53 @@ function footMap(side, plantar) {
     ];
 }
 
-const frontFeatures = surfaceDetails(headFront, [
+const frontFeatures = surfaceDetails(tracedSurfaces.outlines['head-front'], [
     ['Forehead', box(0.25, 0.12, 0.75, 0.3)],
     ['RightEye', box(0.19, 0.36, 0.42, 0.45)],
     ['LeftEye', box(0.58, 0.36, 0.81, 0.45)],
-    ['RightEar', box(0.04, 0.42, 0.15, 0.6)],
-    ['LeftEar', box(0.85, 0.42, 0.96, 0.6)],
+    ['RightEar', box(0.02, 0.395, 0.17, 0.63)],
+    ['LeftEar', box(0.82, 0.395, 0.98, 0.63)],
     ['RightCheek', box(0.18, 0.5, 0.38, 0.66)],
     ['LeftCheek', box(0.62, 0.5, 0.82, 0.66)],
-    ['Nose', box(0.43, 0.46, 0.57, 0.62)],
+    ['Nose', box(0.37, 0.46, 0.62, 0.625)],
     ['Mouth', box(0.35, 0.64, 0.65, 0.71)],
     ['Chin', box(0.39, 0.73, 0.61, 0.8)],
 ]);
 
 function profileMap(side) {
     const orient = side === 'Right' ? mirror : (polygon) => polygon;
-    const surface = orient(profile);
+    const surface = tracedSurfaces.outlines[`head-${side.toLowerCase()}-profile`];
     return [
         ...surfaceDetails(surface, [
-            [side + 'Ear', orient(box(0.52, 0.37, 0.68, 0.61))],
+            [side + 'Ear', orient(box(0.505, 0.36, 0.685, 0.66))],
             ['Forehead', orient(box(0.18, 0.14, 0.4, 0.31))],
-            ['Nose', orient(box(0.035, 0.43, 0.16, 0.55))],
-            ['Mouth', orient(box(0.09, 0.56, 0.21, 0.66))],
+            [side + 'Eye', orient(box(0.14, 0.345, 0.39, 0.405))],
+            ['Nose', orient(box(0.025, 0.415, 0.18, 0.555))],
+            ['Mouth', orient(box(0.06, 0.56, 0.22, 0.67))],
             ['Chin', orient(box(0.15, 0.69, 0.32, 0.79))],
+            [side + 'SideOfHead', box(0, 0, 1, 0.8)],
+            ['Neck', box(0, 0.8, 1, 1)],
         ]),
-        [side + 'SideOfHead', surface],
-        ['Neck', orient(box(0.31, 0.8, 0.7, 0.96))],
     ];
 }
 
 const maps = {
     'body-front': bodyMap(true),
     'body-back': bodyMap(false),
-    'head-front': [...frontFeatures, ['Face', headFront], ['Neck', [[0.24, 0.8], [0.75, 0.8], [0.8, 0.95], [0.14, 0.95]]]],
-    'head-back': [...surfaceDetails(headBack, [['LeftEar', box(0.05, 0.4, 0.2, 0.65)], ['RightEar', box(0.8, 0.4, 0.95, 0.65)]]), ['BackOfHead', headBack], ['Neck', [[0.25, 0.71], [0.79, 0.71], [0.87, 0.96], [0.13, 0.96]]]],
+    'head-front': [...frontFeatures, ...surfaceDetails(tracedSurfaces.outlines['head-front'], [
+        ['Face', box(0, 0, 1, 0.805)], ['Neck', box(0, 0.805, 1, 1)],
+    ])],
+    'head-back': surfaceDetails(tracedSurfaces.outlines['head-back'], [
+        ['LeftEar', box(0.02, 0.385, 0.21, 0.67)], ['RightEar', box(0.82, 0.38, 0.98, 0.67)],
+        ['BackOfHead', box(0, 0, 1, 0.71)], ['Neck', box(0, 0.71, 1, 1)],
+    ]),
     'head-left-profile': profileMap('Left'),
     'head-right-profile': profileMap('Right'),
-    'head-top': [['Scalp', scalp]],
+    // The nose points upward in this plate: image-left is anatomical left.
+    'head-top': [...surfaceDetails(tracedSurfaces.outlines['head-top'], [
+        ['LeftEar', box(0.015, 0.355, 0.135, 0.57)], ['RightEar', box(0.86, 0.355, 0.99, 0.57)],
+        ['Nose', box(0.40, 0.015, 0.60, 0.09)],
+    ]), ['Scalp', tracedSurfaces.outlines['head-top']]],
     'hand-left-palmar': handMap('Left', true),
     'hand-right-palmar': handMap('Right', true),
     'hand-left-dorsal': handMap('Left', false),
@@ -168,11 +217,23 @@ const maps = {
     'foot-right-plantar': footMap('Right', true),
 };
 
-function contains(polygon, x, y) {
+function contains(polygon, x, y, tolerance = 0) {
+    // Sampled surfaces need their simplification tolerance at the rim. Placement
+    // still checks the original SVG fill before accepting any marker.
+    if (Array.isArray(polygon[0]?.[0])) return polygon.some((outline) => contains(outline, x, y, 0.0003));
+    if (polygon.length < 3) return false;
     let inside = false;
     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
         const [xi, yi] = polygon[i];
         const [xj, yj] = polygon[j];
+        const dx = xj - xi, dy = yj - yi;
+        const lengthSquared = dx * dx + dy * dy;
+        if (tolerance && lengthSquared) {
+            const along = Math.max(0, Math.min(1, ((x - xi) * dx + (y - yi) * dy) / lengthSquared));
+            if ((x - xi - along * dx) ** 2 + (y - yi - along * dy) ** 2 <= tolerance ** 2) return true;
+        }
+        const cross = (x - xi) * (yj - yi) - (y - yi) * (xj - xi);
+        if (Math.abs(cross) < 1e-12 && x >= Math.min(xi, xj) && x <= Math.max(xi, xj) && y >= Math.min(yi, yj) && y <= Math.max(yi, yj)) return true;
         if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
     }
     return inside;
@@ -181,7 +242,16 @@ function contains(polygon, x, y) {
 export function suggestRegion(location) {
     const point = getObservationLocation(location);
     if (!point || !Object.hasOwn(maps, point.sketch_id)) return null;
+    if (!contains(tracedSurfaces.outlines[point.sketch_id], point.x, point.y)) return null;
     const match = maps[point.sketch_id].find(([, polygon, surface]) => contains(polygon, point.x, point.y)
         && (!surface || contains(surface, point.x, point.y)));
-    return match ? bodyRegions[match[0]] : null;
+    if (match) return bodyRegions[match[0]];
+    if (point.sketch_id.startsWith('body-')) return bodyRegions[bodyFallback(point)];
+    if (point.sketch_id.startsWith('hand-')) {
+        const side = point.sketch_id.includes('-left-') ? 'Left' : 'Right';
+        const region = point.y < 0.18 ? 'Forearm' : point.y < 0.25 ? 'Wrist'
+            : point.sketch_id.endsWith('-palmar') ? 'HandPalmar' : 'HandDorsal';
+        return bodyRegions[side + region];
+    }
+    return null;
 }
