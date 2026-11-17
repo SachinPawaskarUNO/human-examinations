@@ -91,6 +91,26 @@ class ConfiguredWorkbenchTest extends TestCase
             });
     }
 
+    public function test_deleted_observations_can_be_restored_from_the_workbench_with_the_same_identity(): void
+    {
+        $exam = Examination::create([]);
+        $workspace = route('workbench.examinations.show', $exam);
+        $observation = $exam->observations()->create(['number' => 5, 'type' => 'Scar', 'region' => 'Manual location', 'sketch_id' => 'body-back', 'x' => 0.4, 'y' => 0.3]);
+        $id = $observation->id;
+        $this->from($workspace)->delete(route('demo.observations.destroy', [$exam, $observation]))->assertRedirect($workspace);
+        $restore = route('demo.observations.restore', [$exam, $observation]);
+        $this->get($workspace)->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('observations', 0)->where('observationRoutes.restore.'.$id, $restore));
+        $this->from($workspace)->post($restore)->assertRedirect($workspace);
+        $this->get($workspace)->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('observations.0.id', $id)->where('observations.0.number', 5)
+            ->where('observations.0.region', 'Manual location')->where('observations.0.sketch_id', 'body-back')
+            ->where('observations.0.x', '0.400000')->where('observations.0.y', '0.300000'));
+        $this->from($workspace)->delete(route('demo.observations.destroy', [$exam, $id]))->assertRedirect($workspace);
+        $this->assertSoftDeleted('human_examination_observations', ['id' => $id]);
+        $this->assertDatabaseCount('human_examination_observations', 1);
+    }
+
     public function test_observation_creates_edits_and_deletes_survive_workspace_reloads(): void
     {
         $exam = Examination::create([]);

@@ -6,6 +6,7 @@ namespace HumanExaminations\HumanExaminations\Tests\Feature;
 
 use HumanExaminations\HumanExaminations\Actions\CreateObservation;
 use HumanExaminations\HumanExaminations\Actions\DeleteObservation;
+use HumanExaminations\HumanExaminations\Actions\RestoreObservation;
 use HumanExaminations\HumanExaminations\Actions\UpdateObservation;
 use HumanExaminations\HumanExaminations\Models\Examination;
 use HumanExaminations\HumanExaminations\Models\Observation;
@@ -297,6 +298,52 @@ class ObservationRoutesTest extends TestCase
         $this->assertSame('Updated', $observation->fresh()->label);
     }
 
+    public function test_restore_preserves_identity_number_fields_and_location(): void
+    {
+        $this->allowWrites();
+        $exam = Examination::create([]);
+        $observation = $exam->observations()->create(['number' => 4, 'label' => 'Keep', 'region' => 'Custom', 'sketch_id' => 'body-front', 'x' => 0.5, 'y' => 0.4]);
+        $observation->delete();
+        $this->from('/host')->post($this->url($exam, $observation).'/restore', ['number' => 99, 'label' => 'Ignored'])->assertRedirect('/host');
+        $restored = $exam->observations()->sole();
+        $this->assertSame($observation->id, $restored->id);
+        $this->assertSame(4, $restored->number);
+        $this->assertSame('Keep', $restored->label);
+        $this->assertSame('Custom', $restored->region);
+        $this->assertSame('0.500000', $restored->x);
+        $this->assertNull($restored->deleted_at);
+        $this->postJson($this->url($exam, $observation).'/restore')->assertNotFound();
+    }
+
+    public function test_restore_requires_authorization_and_the_correct_active_parent(): void
+    {
+        $exam = Examination::create([]);
+        $other = Examination::create([]);
+        $observation = $exam->observations()->create(['number' => 1]);
+        $observation->delete();
+        $this->postJson($this->url($exam, $observation).'/restore')->assertUnauthorized();
+        $this->actingAs((new User)->forceFill(['id' => 1]));
+        $this->postJson($this->url($exam, $observation).'/restore')->assertForbidden();
+        $this->allowWrites();
+        $this->postJson($this->url($other, $observation).'/restore')->assertNotFound();
+        $exam->update(['reference' => 'PRIVATE']);
+        $this->postJson($this->url($exam, $observation).'/restore')->assertForbidden();
+        $exam->delete();
+        $this->postJson($this->url($exam, $observation).'/restore')->assertNotFound();
+        $this->assertSoftDeleted($observation);
+    }
+
+    public function test_restore_uses_the_configured_action(): void
+    {
+        $this->allowWrites();
+        config()->set('human-examinations.actions.restore_observation', RoutedRestoreObservation::class);
+        $exam = Examination::create([]);
+        $observation = $exam->observations()->create(['number' => 1]);
+        $observation->delete();
+        $this->postJson($this->url($exam, $observation).'/restore')->assertRedirect();
+        $this->assertSame('Custom restore', $exam->observations()->sole()->label);
+    }
+
     private function allowWrites(): void
     {
         Gate::policy(Examination::class, ObservationParentPolicy::class);
@@ -346,5 +393,16 @@ class RoutedDeleteObservation extends DeleteObservation
     {
         $observation->update(['label' => 'Custom delete']);
         parent::handle($observation);
+    }
+}
+
+class RoutedRestoreObservation extends RestoreObservation
+{
+    public function handle(Observation $observation): Observation
+    {
+        $restored = parent::handle($observation);
+        $restored->update(['label' => 'Custom restore']);
+
+        return $restored;
     }
 }

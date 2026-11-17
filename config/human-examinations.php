@@ -5,6 +5,7 @@ declare(strict_types=1);
 use HumanExaminations\HumanExaminations\Actions\CreateExamination;
 use HumanExaminations\HumanExaminations\Actions\CreateObservation;
 use HumanExaminations\HumanExaminations\Actions\DeleteObservation;
+use HumanExaminations\HumanExaminations\Actions\RestoreObservation;
 use HumanExaminations\HumanExaminations\Actions\UpdateExamination;
 use HumanExaminations\HumanExaminations\Actions\UpdateObservation;
 use HumanExaminations\HumanExaminations\Enums\ObservationType;
@@ -41,6 +42,7 @@ return [
         'create_observation' => CreateObservation::class,
         'update_observation' => UpdateObservation::class,
         'delete_observation' => DeleteObservation::class,
+        'restore_observation' => RestoreObservation::class,
     ],
 
     /*

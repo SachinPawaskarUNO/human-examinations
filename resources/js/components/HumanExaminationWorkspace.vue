@@ -1,10 +1,12 @@
 <script setup>
 import AnatomicalViews from './AnatomicalViews.vue';
 import RegionCombobox from './RegionCombobox.vue';
+import ObservationHistoryControls from './ObservationHistoryControls.vue';
 import {getObservationLocation} from '../observationLocations.js';
 import {observationStyle} from '../observationTypes.js';
 import {bodyRegions, suggestRegion} from '../observationRegions.js';
 import {sketches} from '../sketches.js';
+import {createObservationHistory, observationFields, sameObservation} from '../observationHistory.js';
 
 const props = defineProps({
     // Observation types for the Type dropdown.
@@ -13,9 +15,12 @@ const props = defineProps({
     persistentObservations: {type: Boolean, default: false},
 });
 
-const emit = defineEmits(['new-examination', 'save-observation', 'delete-observation']);
+const emit = defineEmits(['new-examination', 'save-observation', 'delete-observation', 'restore-observation']);
 
-import {computed, nextTick, ref, useId} from 'vue';
+import {computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, ref, useId, watch} from 'vue';
+
+const workspaceInstance = getCurrentInstance();
+const workspaceRoot = ref(null);
 
 const examination = defineModel('examination', {
     type: Object,
@@ -72,11 +77,12 @@ function updateExamination(key, value) {
     };
 }
 
-const FIELDS = ['type', 'label', 'region', 'description', 'length_mm', 'width_mm', 'sketch_id', 'x', 'y'];
+const FIELDS = observationFields;
 const observationPending = ref(false);
 const observationErrors = ref({});
 const selectedNumber = ref(null);
 const activeView = ref('body-front');
+const mapMode = ref('pins');
 const anatomicalViews = ref(null);
 const observationForm = ref(null);
 const canEditObservations = computed(
@@ -85,6 +91,96 @@ const canEditObservations = computed(
 
 // The observation being added or edited.
 const draft = ref(null);
+const history = createObservationHistory();
+const undoChange = ref(null);
+const redoChange = ref(null);
+const historyNotice = ref('');
+const historyReady = computed(() => canEditObservations.value && !observationPending.value && !draft.value);
+let writeToken = 0;
+
+function syncHistory() {
+    undoChange.value = history.peek('undo');
+    redoChange.value = history.peek('redo');
+}
+
+function rememberChange(before, after) {
+    history.record(before, after);
+    syncHistory();
+    historyNotice.value = '';
+}
+
+function findObservation(row) {
+    if (!row) return null;
+    return observations.value.find((item) => row.id != null ? item.id === row.id : item.number === row.number) ?? null;
+}
+
+function resetHistory(message = '') {
+    history.clear();
+    syncHistory();
+    historyNotice.value = message;
+}
+
+watch([() => examination.value?.id, () => props.persistentObservations], () => {
+    writeToken++;
+    observationPending.value = false;
+    observationErrors.value = {};
+    draft.value = null;
+    selectedNumber.value = null;
+    resetHistory();
+});
+
+async function replayHistory(direction) {
+    const change = history.peek(direction);
+    if (!change || !historyReady.value) return;
+    const expected = direction === 'undo' ? change.after : change.before;
+    const target = direction === 'undo' ? change.before : change.after;
+    if (!sameObservation(findObservation(expected ?? target), expected)) {
+        resetHistory('The observation changed outside this history. History has been cleared.');
+        return;
+    }
+    const finished = () => {
+        if (!sameObservation(findObservation(expected ?? target), target)) {
+            resetHistory('The observation list differs from the expected result. History has been cleared.');
+            return;
+        }
+        history.accept(direction);
+        syncHistory();
+        selectedNumber.value = target?.number ?? null;
+        mapMode.value = 'pins';
+        if (target?.sketch_id) activeView.value = target.sketch_id;
+        historyNotice.value = direction === 'undo' ? 'Observation change undone.' : 'Observation change redone.';
+    };
+    if (props.persistentObservations) {
+        if (!target) persistObservation('delete-observation', expected, finished);
+        else if (!expected) persistObservation('restore-observation', target, finished);
+        else persistObservation('save-observation', {id: target.id, ...Object.fromEntries(FIELDS.map((f) => [f, target[f]]))}, finished);
+    } else {
+        observationPending.value = true;
+        const token = writeToken;
+        const current = findObservation(expected ?? target);
+        if (!target) observations.value = observations.value.filter((item) => item !== current);
+        else if (!expected) observations.value = [...observations.value, {...target}].sort((a, b) => a.number - b.number);
+        else observations.value = observations.value.map((item) => item === current ? {...item, ...target} : item);
+        await nextTick();
+        if (token !== writeToken) return;
+        finished();
+        observationPending.value = false;
+    }
+}
+
+function historyKeyboard(event) {
+    const target = event.target instanceof Element ? event.target : document.activeElement;
+    if (!(event.ctrlKey || event.metaKey) || event.altKey || event.defaultPrevented || target?.closest('input, textarea, select, [contenteditable], dialog')) return;
+    const owner = target?.closest('.he-workspace');
+    if (owner ? owner !== workspaceRoot.value : document.querySelectorAll('.he-workspace').length !== 1) return;
+    const key = event.key.toLowerCase();
+    const direction = key === 'z' ? (event.shiftKey ? 'redo' : 'undo') : key === 'y' ? 'redo' : null;
+    if (!direction || !historyReady.value || !history.peek(direction)) return;
+    event.preventDefault();
+    replayHistory(direction);
+}
+onMounted(() => window.addEventListener('keydown', historyKeyboard));
+onBeforeUnmount(() => window.removeEventListener('keydown', historyKeyboard));
 const regionEdited = ref(false);
 const regionInputId = `${useId()}-region`;
 const regionHelpId = `${regionInputId}-help`;
@@ -107,6 +203,7 @@ const draftLocationLabel = computed(() => sketches.find((sketch) => sketch.id ==
 
 function startNew() {
     if (observationPending.value || !canEditObservations.value) return;
+    mapMode.value = 'pins';
     observationErrors.value = {};
     selectedNumber.value = null;
     regionEdited.value = false;
@@ -128,6 +225,7 @@ function startNew() {
 
 function edit(observation) {
     if (observationPending.value) return;
+    mapMode.value = 'pins';
     observationErrors.value = {};
     selectedNumber.value = observation.number;
     // Saved values, including intentionally blank regions, belong to the user.
@@ -174,16 +272,29 @@ function cancel() {
 }
 
 function persistObservation(event, payload, onSuccess) {
+    const handler = {'save-observation': 'onSaveObservation', 'delete-observation': 'onDeleteObservation', 'restore-observation': 'onRestoreObservation'}[event];
+    if (!workspaceInstance.vnode.props?.[handler]) {
+        observationErrors.value = {_form: 'This action is unavailable in this application.'};
+        return;
+    }
+    const token = ++writeToken;
     observationPending.value = true;
     observationErrors.value = {};
+    historyNotice.value = '';
     let completed = false;
 
-    emit(event, payload, (errors = {}) => {
-        if (completed) return;
+    emit(event, payload, async (errors = {}) => {
+        if (completed || token !== writeToken) return;
         completed = true;
-        observationPending.value = false;
         observationErrors.value = errors;
-        if (Object.keys(errors).length === 0) onSuccess();
+        try {
+            if (Object.keys(errors).length === 0) {
+                await nextTick();
+                if (token === writeToken) onSuccess();
+            }
+        } finally {
+            if (token === writeToken) observationPending.value = false;
+        }
     });
 }
 
@@ -192,7 +303,7 @@ const missingType = computed(
     () => !draft.value || !String(draft.value.type ?? '').trim(),
 );
 
-function save() {
+async function save() {
     if (missingType.value || observationPending.value || !canEditObservations.value) {
         return;
     }
@@ -200,9 +311,15 @@ function save() {
     const values = Object.fromEntries(
         FIELDS.map((f) => [f, draft.value[f] === '' ? null : draft.value[f]]),
     );
+    const before = findObservation(draft.value);
+    const previousNumbers = new Set(observations.value.map((item) => item.number));
 
     if (props.persistentObservations) {
         persistObservation('save-observation', {id: draft.value.id, ...values}, () => {
+            const candidates = observations.value.filter((item) => !previousNumbers.has(item.number));
+            const after = before ? findObservation(before) : candidates.length === 1 ? candidates[0] : null;
+            if (after) rememberChange(before, after);
+            else resetHistory('Saved. Undo is unavailable because the observation list was not refreshed.');
             draft.value = null;
         });
         return;
@@ -230,21 +347,32 @@ function save() {
         );
     }
 
+    const token = writeToken;
+    observationPending.value = true;
+    await nextTick();
+    if (token !== writeToken) return;
+    rememberChange(before, observations.value.find((item) => item.number === (draft.value.number ?? selectedNumber.value)));
     draft.value = null;
+    observationPending.value = false;
 }
 
 function removeObservation(number) {
     if (observationPending.value) return;
+    const before = observations.value.find((item) => item.number === number);
+    if (!before) return;
     if (props.persistentObservations) {
         const observation = observations.value.find((item) => item.number === number);
         if (!observation) return;
         persistObservation('delete-observation', observation, () => {
+            if (!findObservation(before)) rememberChange(before, null);
+            else resetHistory('Undo is unavailable because the observation list was not refreshed.');
             if (draft.value?.number === number) cancel();
             if (selectedNumber.value === number) selectedNumber.value = null;
         });
         return;
     }
     observations.value = observations.value.filter((o) => o.number !== number);
+    rememberChange(before, null);
     if (selectedNumber.value === number) selectedNumber.value = null;
 
     if (draft.value?.number === number) {
@@ -265,7 +393,7 @@ function details(o) {
 </script>
 
 <template>
-    <div class="he-workspace">
+    <div ref="workspaceRoot" class="he-workspace">
         <div class="he-toolbar">
             <div v-if="examination.id" class="he-current">
                 <strong>{{
@@ -283,6 +411,7 @@ function details(o) {
                 </span>
             </div>
 
+            <ObservationHistoryControls v-if="$slots.default" :undo-disabled="!historyReady || !undoChange" :redo-disabled="!historyReady || !redoChange" :editing="Boolean(draft)" @undo="replayHistory('undo')" @redo="replayHistory('redo')"/>
             <button
                 type="button"
                 class="he-button he-button--primary"
@@ -295,6 +424,7 @@ function details(o) {
                 New Examination
             </button>
         </div>
+        <p v-if="historyNotice" class="he-muted he-small" role="status">{{ historyNotice }}</p>
 
         <dialog
             ref="newExaminationDialog"
@@ -354,11 +484,12 @@ function details(o) {
         </dialog>
 
         <div class="he-body">
-            <section class="he-card he-area" aria-label="Workspace area">
+            <section class="he-card he-area" :class="{ 'he-area--anatomical': !$slots.default }" aria-label="Workspace area">
                 <slot>
                     <AnatomicalViews
                         ref="anatomicalViews"
                         v-model:view="activeView"
+                        v-model:mode="mapMode"
                         :observations="observations"
                         :selected-number="selectedNumber"
                         :draft-location="draftLocation"
@@ -366,7 +497,11 @@ function details(o) {
                         :disabled="observationPending"
                         @place="placeObservation"
                         @select="selectObservation"
-                    />
+                    >
+                        <template #actions>
+                            <ObservationHistoryControls :undo-disabled="!historyReady || !undoChange" :redo-disabled="!historyReady || !redoChange" :editing="Boolean(draft)" @undo="replayHistory('undo')" @redo="replayHistory('redo')"/>
+                        </template>
+                    </AnatomicalViews>
                 </slot>
             </section>
 
@@ -836,6 +971,11 @@ function details(o) {
     align-items: center;
     justify-content: center;
     min-height: max(32rem, 80vh);
+}
+
+.he-area--anatomical {
+    display: block;
+    min-height: 0;
 }
 
 .he-aside {

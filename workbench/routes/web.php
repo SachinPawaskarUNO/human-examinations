@@ -19,7 +19,7 @@ Route::get('/', fn () => Inertia::render('Workspace', [
     'examination' => null,
     'examinationRoutes' => $examinationRoutes(),
     'observations' => [],
-    'observationRoutes' => ['store' => null, 'update' => [], 'destroy' => []],
+    'observationRoutes' => ['store' => null, 'update' => [], 'destroy' => [], 'restore' => []],
 ]));
 
 // The workspace for one examination. The package redirects here after creating one
@@ -35,6 +35,9 @@ Route::get('/examinations/{examination}', function (Examination $examination) us
         'observations' => $observations,
         'observationRoutes' => [
             'store' => route($examinationRouteName.'observations.store', $examination),
+            'restore' => $examination->observations()->withTrashed()->get()->mapWithKeys(fn (Observation $observation) => [
+                $observation->id => route($examinationRouteName.'observations.restore', [$examination, $observation]),
+            ]),
             'update' => $observations->mapWithKeys(fn (Observation $observation) => [
                 $observation->id => route($examinationRouteName.'observations.update', [$examination, $observation]),
             ]),

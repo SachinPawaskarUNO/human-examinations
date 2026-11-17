@@ -25,4 +25,5 @@ Route::middleware([
         Route::post('examinations/{examination}/observations', [ObservationController::class, 'store'])->name('observations.store');
         Route::patch('examinations/{examination}/observations/{observation}', [ObservationController::class, 'update'])->name('observations.update');
         Route::delete('examinations/{examination}/observations/{observation}', [ObservationController::class, 'destroy'])->name('observations.destroy');
+        Route::post('examinations/{examination}/observations/{observation}/restore', [ObservationController::class, 'restore'])->name('observations.restore');
     });
