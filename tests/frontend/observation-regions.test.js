@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {bodyRegions, suggestRegion} from '../../resources/js/observationRegions.js';
+import surfaces from '../../resources/region-surfaces.json' with {type: 'json'};
+import {readFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {sketches} from '../../resources/js/sketches.js';
 
 test('body regions respect anatomical sides in front and back views', () => {
     for (const [sketch_id, x, y, expected] of [
@@ -36,10 +40,26 @@ test('each detailed sketch suggests its own anatomical region', () => {
     assert.equal(suggestRegion({sketch_id: 'hand-left-palmar', x: 0.5, y: 0.1}), 'Left forearm');
 });
 
+test('full-body sketches identify ears before the general head region', () => {
+    for (const [sketch_id, x, y, expected] of [
+        ['body-front', 0.605, 0.074, 'Left ear'],
+        ['body-front', 0.604, 0.062, 'Left ear'],
+        ['body-front', 0.372, 0.075, 'Right ear'],
+        ['body-front', 0.365, 0.064, 'Right ear'],
+        ['body-back', 0.388, 0.082, 'Left ear'],
+        ['body-back', 0.38, 0.074, 'Left ear'],
+        ['body-back', 0.597, 0.079, 'Right ear'],
+        ['body-back', 0.595, 0.072, 'Right ear'],
+        ['body-front', 0.5, 0.05, 'Head'], ['body-back', 0.5, 0.05, 'Head'],
+        ['body-front', 0.5, 0.011, 'Head'], ['body-back', 0.5, 0.01, 'Head'],
+        ['body-front', 0.65, 0.07, null], ['body-back', 0.34, 0.08, null],
+    ]) assert.equal(suggestRegion({sketch_id, x, y}), expected, `${sketch_id} ${x},${y}`);
+});
+
 test('sided buttocks and joints respect the front/back orientation', () => {
     for (const [sketch_id, x, y, expected] of [
         ['body-back', 0.43, 0.46, 'Left buttock'], ['body-back', 0.57, 0.46, 'Right buttock'],
-        ['body-back', 0.5, 0.46, 'Buttocks'],
+        ['body-back', 0.5, 0.46, 'Groin'],
         ['body-front', 0.23, 0.355, 'Right elbow'], ['body-back', 0.23, 0.355, 'Left elbow'],
         ['body-front', 0.15, 0.5, 'Right wrist'], ['body-back', 0.15, 0.5, 'Left wrist'],
         ['body-front', 0.35, 0.445, 'Right hip'], ['body-back', 0.35, 0.445, 'Left hip'],
@@ -100,4 +120,92 @@ test('unrecognized areas and invalid locations do not invent a region', () => {
         {sketch_id: 'hand-right-dorsal', x: 0.95, y: 0.9},
         {sketch_id: 'foot-left-plantar', x: 0.02, y: 0.5},
     ]) assert.equal(suggestRegion(location), null, JSON.stringify(location));
+});
+
+test('head features include ear rims, lobes, nostril wings, and top-view ears', () => {
+    for (const [sketch_id, x, y, expected] of [
+        ['head-front', .935, .412, 'Left ear'], ['head-front', .06, .415, 'Right ear'],
+        ['head-front', .875, .598, 'Left ear'], ['head-front', .135, .60, 'Right ear'],
+        ['head-front', .415, .578, 'Nose'], ['head-front', .565, .58, 'Nose'],
+        ['head-back', .075, .41, 'Left ear'], ['head-back', .936, .403, 'Right ear'],
+        ['head-top', .094, .39, 'Left ear'], ['head-top', .916, .399, 'Right ear'],
+        ['head-top', .915842, .398225, 'Right ear'],
+        ['head-top', .07, .54, 'Left ear'], ['head-top', .956, .54, 'Right ear'],
+        ['head-top', .51, .05, 'Nose'],
+        ['head-left-profile', .56, .62, 'Left ear'], ['head-right-profile', .44, .62, 'Right ear'],
+        ['head-left-profile', .11, .61, 'Mouth'], ['head-right-profile', .89, .61, 'Mouth'],
+    ]) assert.equal(suggestRegion({sketch_id, x, y}), expected, `${sketch_id} ${x},${y}`);
+});
+
+test('toe edge suggestions retain sided toe labels on dorsal and plantar views', () => {
+    for (const [surface, examples] of [
+        ['dorsal', [['big toe', .17, .92], ['big toe', .355, .968], ['second toe', .48, .944], ['third toe', .645, .922], ['fourth toe', .752, .883], ['little toe', .85, .813]]],
+        ['plantar', [['big toe', .88, .90], ['big toe', .76, .966], ['second toe', .50, .942], ['third toe', .38, .916], ['fourth toe', .29, .884], ['little toe', .21, .85]]],
+    ]) for (const [toe, x, y] of examples) {
+        assert.equal(suggestRegion({sketch_id: `foot-left-${surface}`, x, y}), `Left ${toe}`, `${surface} ${x},${y}`);
+        assert.equal(suggestRegion({sketch_id: `foot-right-${surface}`, x: 1 - x, y}), `Right ${toe}`, `${surface} mirrored ${x},${y}`);
+    }
+    for (const location of [
+        {sketch_id: 'foot-left-dorsal', x: .406, y: .86},
+        {sketch_id: 'foot-right-dorsal', x: .594, y: .86},
+        {sketch_id: 'head-front', x: .02, y: .40},
+        {sketch_id: 'head-top', x: .025, y: .35},
+    ]) assert.equal(suggestRegion(location), null, JSON.stringify(location));
+});
+
+test('region outlines retain provenance for the bundled SVG artwork', async () => {
+    for (const [id, hash] of Object.entries(surfaces.sources)) {
+        const source = sketches.find(s => s.id === id);
+        assert.equal(createHash('sha256').update(await readFile(new URL(source.src))).digest('hex'), hash, `${id}: retrace region surfaces after changing the artwork`);
+    }
+});
+
+test('groin, inner thighs, upper chest, and limb edges fill the full-body gaps', () => {
+    for (const [sketch_id, x, y, expected] of [
+        ['body-front', 0.5, 0.48, 'Groin'], ['body-front', 0.45, 0.50, 'Groin'],
+        ['body-back', 0.5, 0.50, 'Groin'], ['body-back', 0.40, 0.50, 'Groin'],
+        ['body-front', 0.44, 0.59, 'Right inner thigh'], ['body-back', 0.425, 0.59, 'Left inner thigh'],
+        ['body-front', 0.56, 0.59, 'Left inner thigh'], ['body-back', 0.575, 0.59, 'Right inner thigh'],
+        ['body-front', 0.5, 0.215, 'Upper chest'], ['body-back', 0.5, 0.215, 'Upper back'],
+        ['body-front', 0.44, 0.17, 'Right collarbone'], ['body-front', 0.56, 0.17, 'Left collarbone'],
+        ['body-front', 0.30, 0.26, 'Right armpit'], ['body-back', 0.30, 0.26, 'Left armpit'],
+    ]) assert.equal(suggestRegion({sketch_id, x, y}), expected, `${sketch_id} ${x},${y}`);
+    assert.equal(bodyRegions.Groin, 'Groin');
+    assert.equal(Object.hasOwn(bodyRegions, 'Buttocks'), false);
+});
+
+test('nipple zones follow the SVG circles with an enlarged radius', () => {
+    for (const [name, bounds] of Object.entries(surfaces.landmarks['body-front'])) {
+        const {x, y, rx, ry} = bounds;
+        for (const [dx, dy] of [[0, 0], [rx * 0.9, 0], [0, ry * 0.9]]) {
+            assert.equal(suggestRegion({sketch_id: 'body-front', x: x + dx, y: y + dy}), bodyRegions[name]);
+        }
+        assert.equal(suggestRegion({sketch_id: 'body-front', x: x + rx * 1.2, y}), name === 'LeftNipple' ? 'Left chest' : 'Right chest');
+    }
+});
+
+test('every traced anatomical boundary has a standard region suggestion', () => {
+    assert.equal(Object.keys(surfaces.outlines).length, sketches.length);
+    for (const [sketch_id, outlines] of Object.entries(surfaces.outlines)) {
+        for (const outline of outlines.filter(polygon => polygon.length >= 3)) {
+            for (const [x, y] of outline) {
+                const label = suggestRegion({sketch_id, x, y});
+                assert.ok(Object.values(bodyRegions).includes(label), `${sketch_id} ${x},${y}: ${label}`);
+            }
+        }
+    }
+});
+
+test('full-body feet include the outer toe and sole edges on both sides', () => {
+    for (const sketch_id of ['body-front', 'body-back']) {
+        const seen = new Set();
+        for (const outline of surfaces.outlines[sketch_id]) {
+            for (const [x, y] of outline.filter(([, y]) => y > 0.96)) {
+                const side = x < 0.5 ? (sketch_id === 'body-front' ? 'Right' : 'Left') : (sketch_id === 'body-front' ? 'Left' : 'Right');
+                assert.equal(suggestRegion({sketch_id, x, y}), `${side} foot`, `${sketch_id} ${x},${y}`);
+                seen.add(side);
+            }
+        }
+        assert.equal(seen.size, 2);
+    }
 });

@@ -159,7 +159,7 @@ class ConfiguredWorkbenchTest extends TestCase
         ])->assertRedirect($workspace);
         $observation = $exam->observations()->sole();
 
-        foreach (['Right upper arm', 'Posterior right upper arm, near elbow', null] as $region) {
+        foreach (['Right upper arm', 'Buttocks', 'Posterior right upper arm, near elbow', null] as $region) {
             $this->from($workspace)->patch(route('demo.observations.update', [$exam, $observation]), ['region' => $region])
                 ->assertRedirect($workspace);
             $this->get($workspace)->assertInertia(fn (AssertableInertia $page) => $page
@@ -177,6 +177,9 @@ class ConfiguredWorkbenchTest extends TestCase
             [BodyRegion::LeftButtock, 'body-back', 0.43, 0.46],
             [BodyRegion::RightRingFinger, 'hand-right-dorsal', 0.26, 0.82],
             [BodyRegion::LeftBigToe, 'foot-left-dorsal', 0.32, 0.92],
+            [BodyRegion::Groin, 'body-front', 0.5, 0.48],
+            [BodyRegion::LeftInnerThigh, 'body-back', 0.425, 0.6],
+            [BodyRegion::RightNipple, 'body-front', 0.365033, 0.252963],
         ];
 
         foreach ($examples as $index => [$region, $sketch, $x, $y]) {
@@ -191,7 +194,7 @@ class ConfiguredWorkbenchTest extends TestCase
                 ->where('observations.'.$index.'.y', number_format($y, 6, '.', '')));
         }
 
-        $this->assertSame(3, $exam->observations()->count());
+        $this->assertSame(count($examples), $exam->observations()->count());
     }
 
     public function test_marker_creation_and_initial_placement_reload_with_their_observations(): void
