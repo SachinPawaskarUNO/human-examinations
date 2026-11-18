@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 namespace HumanExaminations\HumanExaminations;
 
+use HumanExaminations\HumanExaminations\Actions\CreateExamination;
+use HumanExaminations\HumanExaminations\Actions\CreateObservation;
+use HumanExaminations\HumanExaminations\Actions\DeleteObservation;
+use HumanExaminations\HumanExaminations\Actions\RestoreObservation;
+use HumanExaminations\HumanExaminations\Actions\UpdateExamination;
+use HumanExaminations\HumanExaminations\Actions\UpdateObservation;
 use HumanExaminations\HumanExaminations\Console\Commands\HumanExaminationsCommand;
 use Illuminate\Support\ServiceProvider;
 
@@ -17,6 +23,46 @@ class HumanExaminationsServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../config/human-examinations.php', 'human-examinations');
 
         $this->app->singleton(HumanExaminations::class);
+
+        // Use the app's own action class if the config points at one.
+        $this->app->bind(CreateExamination::class, function (): CreateExamination {
+            $class = config('human-examinations.actions.create_examination', CreateExamination::class);
+
+            return $class === CreateExamination::class
+                ? new CreateExamination
+                : app($class);
+        });
+
+        $this->app->bind(UpdateExamination::class, function (): UpdateExamination {
+            $class = config('human-examinations.actions.update_examination', UpdateExamination::class);
+
+            return $class === UpdateExamination::class
+                ? new UpdateExamination
+                : app($class);
+        });
+
+        $this->app->bind(CreateObservation::class, function (): CreateObservation {
+            $class = config('human-examinations.actions.create_observation', CreateObservation::class);
+
+            return $class === CreateObservation::class ? new CreateObservation : app($class);
+        });
+
+        $this->app->bind(UpdateObservation::class, function (): UpdateObservation {
+            $class = config('human-examinations.actions.update_observation', UpdateObservation::class);
+
+            return $class === UpdateObservation::class ? new UpdateObservation : app($class);
+        });
+
+        $this->app->bind(DeleteObservation::class, function (): DeleteObservation {
+            $class = config('human-examinations.actions.delete_observation', DeleteObservation::class);
+
+            return $class === DeleteObservation::class ? new DeleteObservation : app($class);
+        });
+        $this->app->bind(RestoreObservation::class, function (): RestoreObservation {
+            $class = config('human-examinations.actions.restore_observation', RestoreObservation::class);
+
+            return $class === RestoreObservation::class ? new RestoreObservation : app($class);
+        });
     }
 
     /**

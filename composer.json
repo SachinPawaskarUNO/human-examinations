@@ -7,7 +7,7 @@
         "spawaskar",
         "human-examinations"
     ],
-    "homepage": "https://github.com/spawaskar/human-examinations",
+    "homepage": "https://github.com/SachinPawaskarUNO/human-examinations",
     "license": "MIT",
     "authors": [
         {
@@ -18,17 +18,21 @@
     ],
     "require": {
         "php": "^8.3",
+        "illuminate/database": "^12.0||^13.0",
         "illuminate/support": "^12.0||^13.0"
     },
     "require-dev": {
+        "brianium/paratest": "<7.28",
+        "inertiajs/inertia-laravel": "^3.7",
         "larastan/larastan": "^3.9",
-        "laravel/pint": "^1.29",
         "laravel/pao": "^1.0",
+        "laravel/pint": "^1.29",
         "orchestra/testbench": "^10.0||^11.0",
         "pestphp/pest": "^4.6||^5.0",
         "pestphp/pest-plugin-laravel": "^4.1||^5.0",
         "pestphp/pest-plugin-type-coverage": "^4.0||^5.0",
-        "phpstan/extension-installer": "^1.4"
+        "phpstan/extension-installer": "^1.4",
+        "phpstan/phpstan": "^2.0 <2.3.6"
     },
     "autoload": {
         "psr-4": {
@@ -52,7 +56,11 @@
             "@php vendor/bin/testbench package:discover --ansi"
         ],
         "build": [
-            "@php vendor/bin/testbench workbench:build --ansi"
+            "@php vendor/bin/testbench workbench:build --ansi",
+            "@build:assets"
+        ],
+        "build:assets": [
+            "npm run build"
         ],
         "serve": [
             "Composer\\Config::disableProcessTimeout",
