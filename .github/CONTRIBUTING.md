@@ -27,6 +27,10 @@ composer install
 npm ci
 ```
 
+See the [development guide](../docs/development.md) for the local workbench,
+validation commands, and region-map maintenance. User-facing guides are indexed
+in [docs/README.md](../docs/README.md).
+
 ## Lint
 
 Lint your code:

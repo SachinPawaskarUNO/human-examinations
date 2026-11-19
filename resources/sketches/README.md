@@ -11,6 +11,10 @@ left/right profiles and top of the head; left/right palmar/dorsal hands; and
 left/right dorsal/plantar feet. Anatomical left and right refer to the subject.
 The drawings do not define semantic region boundaries.
 
+See the [body-region reference](../../docs/body-regions.md) for illustrated
+selection maps and standard labels, and the [workspace guide](../../docs/workspace.md)
+for marker placement and diagram controls.
+
 `../region-surfaces.json` stores normalized outlines from the white-filled paths
 in all 15 drawings, plus enlarged nipple landmarks derived from the front body's
 two circles. Region suggestions use these surfaces to include anatomical edges
