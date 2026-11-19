@@ -43,6 +43,18 @@ To keep existing data and choose an available port, use native Composer:
 composer exec -- testbench serve --port=18271
 ```
 
+### Interactive Artisan prompts on Windows
+
+Run Testbench directly with PHP when a command prompts for input. On Windows,
+`composer exec` can close the child process's input stream, causing the prompt
+to abort as soon as it opens. The server command above can still run through
+Composer.
+
+```powershell
+php vendor/bin/testbench human-examinations:create
+php vendor/bin/testbench human-examinations:show
+```
+
 ## Validation Commands
 
 Run commands from the package repository:
@@ -60,4 +72,4 @@ CI covers PHP 8.3–8.5, Laravel 12/13, dependency stability lanes, and Linux/Wi
 
 ## Maintaining Region Maps
 
-Follow the [region maintenance notes](body-regions.md#maintaining-the-reference) when changing the catalogue, selection zones, or SVG artwork.
+Follow the [region maintenance notes](body-regions.md#maintaining-the-reference) when changing the catalog, selection zones, or SVG artwork.

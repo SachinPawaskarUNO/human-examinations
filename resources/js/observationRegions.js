@@ -1,8 +1,8 @@
-import catalogue from '../body-regions.json' with {type: 'json'};
+import catalog from '../body-regions.json' with {type: 'json'};
 import tracedSurfaces from '../region-surfaces.json' with {type: 'json'};
 import {getObservationLocation} from './observationLocations.js';
 
-export const bodyRegions = Object.freeze(catalogue);
+export const bodyRegions = Object.freeze(catalog);
 
 const mirror = (polygon) => polygon.map(([x, y]) => [1 - x, y]);
 const box = (left, top, right, bottom) => [[left, top], [right, top], [right, bottom], [left, bottom]];

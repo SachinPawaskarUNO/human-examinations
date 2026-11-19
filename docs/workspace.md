@@ -1,8 +1,8 @@
-# Workspace guide
+# Workspace Guide
 
 [Documentation index](README.md) · [Package overview](../README.md)
 
-## Getting started
+## Getting Started
 
 `resources/js/components/HumanExaminationWorkspace.vue` is a Vue 3.5+ component
 for your app's Vite build.
@@ -34,6 +34,10 @@ return Inertia::render('Examination', [
 
 Without `types`, the Type field is free text.
 
+## Import and Export
+
+The toolbar offers **Import JSON** and an **Export** menu with JSON and CSV options. JSON includes examination details and active observations, including marker locations. Import previews the reference and observation count before confirmation. Local imports replace in-memory workspace data; persistent imports create a new saved examination. Save or cancel an observation draft before transferring files. See [import and export](import-export.md) for the format, host callbacks, and validation behavior.
+
 ## Region Suggestions
 
 The editable Region field suggests a standard label from marker placement and accepts custom text. Suggestions follow a new marker until you edit or clear the field; saved region text is preserved. See the [body-region reference](body-regions.md) for the illustrated maps, all 99 choices, PHP/JavaScript examples, and coverage rules.
@@ -42,7 +46,7 @@ The editable Region field suggests a standard label from marker placement and ac
 
 The workspace's default area includes **Full body**, **Head**, **Hands**, and
 **Feet** tabs with responsive SVG diagrams. Body front and back start together,
-side by side when there is room and stacked in narrower areas. The catalogue offers
+side by side when there is room and stacked in narrower areas. The catalog offers
 15 views:
 
 | Group | Views |
@@ -73,12 +77,11 @@ and `body-back` select this paired display; each diagram retains its own sketch
 ID. Every stable view ID opens its category and displays the other views in that
 category too. Choosing a tab emits its first view ID through `v-model:view`
 (`body-front`, `head-front`, `hand-left-palmar`, or `foot-left-dorsal`).
-The catalogue in
+The catalog in
 `resources/js/sketches.js` exports `sketchGroups` and the flat `sketches` list.
 Each view has `id`, `label`, `width`, `height`, and `src`; body views also have
 `sides`, ordered from the image's left to right. Store `id` when referring to a
-view. Vite builds the source SVGs into local assets and manages their URLs; the
-application does not fetch diagrams from the reference repository at runtime.
+view. Vite builds the source SVGs into local assets and manages their URLs.
 
 ## Zoom, Pan, and Diagram Height
 
@@ -90,7 +93,7 @@ back unchanged. Drag with the left or right mouse button to pan. Dragging does
 not place or select a marker. **Reset view** restores only that sketch to 100%
 and centers it. Changing the anatomical category resets zoom and pan.
 
-The shared **Height** slider resizes all diagram viewports from **280 to 900 px**.
+The shared **View height** slider resizes all diagram viewports from **280 to 900 px**.
 Drawings retain their aspect ratios, paired body views keep the same height,
 and marker badges stay the same size. Browser and panel resizing refit the
 drawings and constrain panning to keep them reachable.
@@ -109,12 +112,18 @@ overlapping locations appear warmer. All visible sketches use the same relative
 scale, so front/back concentrations can be compared. The scale is recalculated
 for the selected category and its observations; it is not an absolute count scale.
 
+<p align="center">
+    <img src="images/density-1-framed.svg" alt="Density view showing heatmaps on the front and back body sketches">
+    <br>
+    <sub>Warmer colors show where mapped observations cluster.</sub>
+</p>
+
 Only complete mapped observations contribute. Unmapped findings and the unsaved
 marker preview are excluded. Heat is clipped to the anatomical outline, and the
 legend reports the mapped count or an empty state. Density represents location
 concentration, not observation type or severity.
 
-Zoom, pan, and the shared Height slider work in either mode. Switching modes
+Zoom, pan, and the shared View height slider work in either mode. Switching modes
 preserves framing and draft form values. Density does not place or select markers;
 switch to Pins to edit the map. Selecting an observation or starting placement
 from the workspace sidebar returns to Pins automatically.
@@ -128,6 +137,12 @@ database fields.
 Saved observations appear as numbered markers on their own sketches. Click a
 marker or its list entry to select the observation and open its form; selecting
 a mapped list entry also opens the corresponding view.
+
+<p align="center">
+    <img src="images/pins-1-framed.svg" alt="Pins view showing numbered markers on the front and back body sketches">
+    <br>
+    <sub>Pins show each saved observation at its mapped location.</sub>
+</p>
 
 Markers and list numbers share a muted color for each observation type. The
 palette separates tattoos in deep blue, stab wounds in forest green, and
@@ -186,7 +201,7 @@ identifies itself as extracted with permission from INTERPOL DVI Form 2023.
 **Undo / Redo** reverses the last 50 saved observation additions, edits, removals,
 and initial marker placements in the current examination. A new change clears
 redo; saving an unchanged observation does not. Text inputs retain native undo.
-Controls sit beside the anatomical category tabs, above the shared Height slider.
+Controls sit beside the anatomical category tabs, above the shared View height slider.
 With focus outside editable fields, use **Ctrl/Cmd+Z** to undo,
 **Ctrl/Cmd+Shift+Z** or **Ctrl+Y** to redo.
 Shortcuts work across the page when one workspace is mounted; with multiple
@@ -194,9 +209,12 @@ workspaces, focus must be inside the intended workspace. Custom workspace slots
 keep their history controls in the workspace toolbar. Standalone
 `AnatomicalViews.vue` exposes an optional `actions` slot beside its category tabs.
 
-Save or cancel an open observation form before using history. Controls are also
-disabled during requests. Failed writes keep the history position and can be
-retried. Switching examinations or reloading the page starts a fresh history;
+Use **Undo** after clicking **X** to restore an observation and its marker. Use
+**Redo** to remove it again. If a form is open for a different observation, undoing
+or redoing the removal keeps that draft intact. For other history actions, save
+or cancel the open form first. Controls are disabled during requests. Failed
+writes keep the history position and can be retried. Switching examinations or
+reloading the page starts a fresh history;
 examination details, navigation, and unsaved drafts are outside this history.
 
 Local mode updates `v-model:observations`. Persistent mode uses the same save,

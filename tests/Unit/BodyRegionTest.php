@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 use HumanExaminations\HumanExaminations\Enums\BodyRegion;
 
-it('provides standard region labels matching the frontend suggestion catalogue', function (): void {
-    $catalogue = json_decode(file_get_contents(__DIR__.'/../../resources/body-regions.json'), true, flags: JSON_THROW_ON_ERROR);
+it('provides standard region labels matching the frontend suggestion catalog', function (): void {
+    $catalog = json_decode(file_get_contents(__DIR__.'/../../resources/body-regions.json'), true, flags: JSON_THROW_ON_ERROR);
     $regions = [];
 
     foreach (BodyRegion::cases() as $region) {
         $regions[$region->name] = $region->value;
     }
 
-    expect($catalogue)->toBe($regions)
+    expect($catalog)->toBe($regions)
         ->and(BodyRegion::RightUpperArm->value)->toBe('Right upper arm');
 });
 

@@ -10,12 +10,12 @@ use HumanExaminations\HumanExaminations\Actions\RestoreObservation;
 use HumanExaminations\HumanExaminations\Actions\UpdateObservation;
 use HumanExaminations\HumanExaminations\Models\Examination;
 use HumanExaminations\HumanExaminations\Models\Observation;
+use HumanExaminations\HumanExaminations\Support\RecordRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 
 class ObservationController
 {
@@ -60,31 +60,22 @@ class ObservationController
     /** @return array<string, mixed> */
     private function validated(Request $request, ?Observation $observation = null): array
     {
+        $rules = RecordRules::observation();
+        $rules['type'] = ['sometimes', ...$rules['type']];
         $attributes = $request->validate([
+            ...$rules,
             'id' => ['missing'],
             'examination_id' => ['missing'],
             'number' => ['missing'],
-            'type' => ['sometimes', 'required', Rule::enum(Observation::typeEnum())],
-            'label' => ['nullable', 'string', 'max:255'],
-            'region' => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'length_mm' => ['nullable', 'numeric', 'between:0,99999999.99'],
-            'width_mm' => ['nullable', 'numeric', 'between:0,99999999.99'],
-            'sketch_id' => ['nullable', 'string', 'max:255'],
-            'x' => ['nullable', 'numeric', 'between:0,1'],
-            'y' => ['nullable', 'numeric', 'between:0,1'],
         ]);
+        RecordRules::rejectBlankValues($attributes, RecordRules::OBSERVATION_NONBLANK_FIELDS);
 
         // PATCH may omit location fields, so validate completeness against the stored values.
         $location = array_replace(
             $observation?->only(['sketch_id', 'x', 'y']) ?? ['sketch_id' => null, 'x' => null, 'y' => null],
             Arr::only($attributes, ['sketch_id', 'x', 'y']),
         );
-        Validator::make($location, [
-            'sketch_id' => ['nullable', 'required_with:x,y'],
-            'x' => ['nullable', 'required_with:sketch_id,y'],
-            'y' => ['nullable', 'required_with:sketch_id,x'],
-        ])->validate();
+        Validator::make($location, RecordRules::location())->validate();
 
         return $attributes;
     }

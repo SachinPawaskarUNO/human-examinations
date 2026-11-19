@@ -1,6 +1,7 @@
 <script setup>
 import {router} from '@inertiajs/vue3';
 import HumanExaminationWorkspace from '../../../../resources/js/components/HumanExaminationWorkspace.vue';
+import {downloadExaminationResponse} from '../../../../resources/js/examinationTransfer.js';
 
 const props = defineProps({
     observationTypes: {type: Array, default: () => []},
@@ -8,6 +9,10 @@ const props = defineProps({
     examinationRoutes: {type: Object, required: true},
     observations: {type: Array, default: () => []},
     observationRoutes: {type: Object, required: true},
+    transferLimits: {type: Object, default: undefined},
+    features: {type: Object, default: undefined},
+    markerColors: {type: Object, default: undefined},
+    workspaceDefaults: {type: Object, default: undefined},
 });
 
 // Receives the details entered in the component's "New examination" dialog.
@@ -28,7 +33,7 @@ function saveExamination({reference, examiner, date, notes}) {
     );
 }
 
-function visitObservation(method, url, data, complete) {
+function visitObservation(method, url, data, complete, errorBag = 'observation') {
     let finished = false;
     const finish = (errors = {}) => {
         if (finished) return;
@@ -47,7 +52,7 @@ function visitObservation(method, url, data, complete) {
         data,
         preserveScroll: true,
         preserveState: true,
-        errorBag: 'observation',
+        errorBag,
         onSuccess: () => finish(),
         onError: (errors) => finish(errors),
         onHttpException: () => {
@@ -78,6 +83,17 @@ function deleteObservation(observation, complete) {
 function restoreObservation(observation, complete) {
     visitObservation('post', props.observationRoutes.restore?.[observation.id], {}, complete);
 }
+
+function importExamination(file, complete) {
+    visitObservation('post', props.examinationRoutes.import, {file}, complete, 'examinationImport');
+}
+
+async function exportExamination(format, complete) {
+    try {
+        await downloadExaminationResponse(props.examinationRoutes.export?.[format], format, `human-examination-${props.examination.id}.${format}`);
+        complete();
+    } catch (error) { complete({_form: error.message}); }
+}
 </script>
 
 <template>
@@ -89,11 +105,17 @@ function restoreObservation(observation, complete) {
             :types="observationTypes"
             :observations="props.observations"
             persistent-observations
+            :transfer-limits="transferLimits"
+            :features="features"
+            :marker-colors="markerColors"
+            :workspace-defaults="workspaceDefaults"
             @update:examination="saveExamination"
             @new-examination="createExamination"
             @save-observation="saveObservation"
             @delete-observation="deleteObservation"
             @restore-observation="restoreObservation"
+            @import-examination="importExamination"
+            @export-examination="exportExamination"
         />
     </main>
 </template>

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import { sketchGroups, sketches } from '../../resources/js/sketches.js';
 
-test('the catalogue provides stable IDs for all fifteen anatomical views', () => {
+test('the catalog provides stable IDs for all fifteen anatomical views', () => {
     assert.deepEqual(sketchGroups.map((group) => group.id), ['body', 'head', 'hands', 'feet']);
     assert.deepEqual(sketches.map((sketch) => sketch.id), [
         'body-front', 'body-back',
@@ -14,7 +14,7 @@ test('the catalogue provides stable IDs for all fifteen anatomical views', () =>
     assert.equal(new Set(sketches.map((sketch) => sketch.id)).size, 15);
 });
 
-test('every catalogue entry resolves to an attributed SVG with matching dimensions', async () => {
+test('every catalog entry resolves to an attributed SVG with matching dimensions', async () => {
     for (const sketch of sketches) {
         const svg = await readFile(new URL(sketch.src), 'utf8');
         const root = svg.match(/<svg\b[^>]*>/)[0];

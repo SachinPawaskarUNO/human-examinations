@@ -9,6 +9,12 @@
     <a href="LICENSE.md"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License: MIT"></a>
 </p>
 
+<p align="center">
+    <img src="docs/images/workspace-framed.svg" alt="Human Examinations workspace with front and back body sketches, numbered markers, and an observation list">
+    <br>
+    <sub>The examination workspace with sample observations mapped on the front and back views.</sub>
+</p>
+
 A Laravel package for recording human examinations and mapping observations on anatomical sketches, with an interactive Vue workspace.
 
 ## Features
@@ -16,6 +22,7 @@ A Laravel package for recording human examinations and mapping observations on a
 - Examination and observation storage with configurable actions, optional authorized write routes, and soft deletion/restoration.
 - A Vue workspace with 15 anatomical sketches, numbered markers, and 99 editable region choices.
 - Independent zoom/pan, shared viewport height, density visualization, and observation undo/redo.
+- JSON import/export and CSV export, preserving examination details and active observations.
 
 ## Installation
 
@@ -23,13 +30,12 @@ Requires PHP 8.3+ and Laravel 12 or 13. Install the package and its tables:
 
 ```bash
 composer require spawaskar/human-examinations
-php artisan vendor:publish --tag="human-examinations-migrations"
-php artisan migrate
+php artisan human-examinations:install
 ```
 
-See [installation](docs/installation.md) for configuration, views, translations, and asset publish tags. The optional Vue workspace uses Vue 3.5+ and the host’s Vite build.
+The installer publishes config and migrations and offers to run pending migrations. See [installation](docs/installation.md) for manual publish tags and the Artisan commands for creating, listing, and inspecting examinations. The optional Vue workspace uses Vue 3.5+ and the host’s Vite build.
 
-## Quick start
+## Quick Start
 
 ```php
 use HumanExaminations\HumanExaminations\Actions\CreateObservation;
@@ -58,11 +64,12 @@ The create action allocates the next per-examination observation number. Hosts o
 - [Documentation index](docs/README.md)
 - [Workspace guide](docs/workspace.md)
 - [Body regions and illustrated selection maps](docs/body-regions.md)
+- [Import and export](docs/import-export.md)
 - [Application integration and persistence](docs/integration.md)
 - [Models, observation types, and locations](docs/api.md)
 - [Development and local workbench](docs/development.md)
 
-## Local demo
+## Local Demo
 
 From the package repository, install dependencies and start the native PHP/Composer workbench:
 

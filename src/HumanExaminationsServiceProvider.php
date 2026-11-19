@@ -7,10 +7,16 @@ namespace HumanExaminations\HumanExaminations;
 use HumanExaminations\HumanExaminations\Actions\CreateExamination;
 use HumanExaminations\HumanExaminations\Actions\CreateObservation;
 use HumanExaminations\HumanExaminations\Actions\DeleteObservation;
+use HumanExaminations\HumanExaminations\Actions\ExportExamination;
+use HumanExaminations\HumanExaminations\Actions\ImportExamination;
 use HumanExaminations\HumanExaminations\Actions\RestoreObservation;
 use HumanExaminations\HumanExaminations\Actions\UpdateExamination;
 use HumanExaminations\HumanExaminations\Actions\UpdateObservation;
+use HumanExaminations\HumanExaminations\Console\Commands\CreateExaminationCommand;
 use HumanExaminations\HumanExaminations\Console\Commands\HumanExaminationsCommand;
+use HumanExaminations\HumanExaminations\Console\Commands\InstallCommand;
+use HumanExaminations\HumanExaminations\Console\Commands\ListExaminationsCommand;
+use HumanExaminations\HumanExaminations\Console\Commands\ShowExaminationCommand;
 use Illuminate\Support\ServiceProvider;
 
 class HumanExaminationsServiceProvider extends ServiceProvider
@@ -63,6 +69,16 @@ class HumanExaminationsServiceProvider extends ServiceProvider
 
             return $class === RestoreObservation::class ? new RestoreObservation : app($class);
         });
+        $this->app->bind(ExportExamination::class, function (): ExportExamination {
+            $class = config('human-examinations.actions.export_examination', ExportExamination::class);
+
+            return $class === ExportExamination::class ? new ExportExamination : app($class);
+        });
+        $this->app->bind(ImportExamination::class, function (): ImportExamination {
+            $class = config('human-examinations.actions.import_examination', ImportExamination::class);
+
+            return $class === ImportExamination::class ? new ImportExamination : app($class);
+        });
     }
 
     /**
@@ -102,6 +118,10 @@ class HumanExaminationsServiceProvider extends ServiceProvider
 
         $this->commands([
             HumanExaminationsCommand::class,
+            InstallCommand::class,
+            CreateExaminationCommand::class,
+            ListExaminationsCommand::class,
+            ShowExaminationCommand::class,
         ]);
     }
 }

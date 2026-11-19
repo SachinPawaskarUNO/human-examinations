@@ -1,19 +1,19 @@
-# Body regions and selection maps
+# Body Regions & Selection Maps
 
-[Documentation index](README.md) · [Package overview](../README.md)
+[Documentation Index](README.md) · [Package Overview](../README.md)
 
 
-The package provides **99 standard region choices** through `Enums\BodyRegion` and the frontend catalogue. Region suggestions are editable application zones: review the suggested label and refine it for the observation as needed.
+The package provides **99 standard region choices** through `Enums\BodyRegion` and the frontend catalog. Region suggestions are editable application zones: review the suggested label and refine it for the observation as needed.
 
-## Reading the maps
+## Reading the Maps
 
 - Anatomical left and right always refer to the subject. In the front body view, the subject’s left appears on the viewer’s right.
 - Colors distinguish region zones in these reference images. The application’s observation markers use a separate palette based on observation type.
-- The numbered keys match the catalogue table below for this version. They are illustration labels, not stored region identifiers or observation numbers; catalogue changes can change the numbering.
+- The numbered keys match the catalog table below for this version. They are illustration labels, not stored region identifiers or observation numbers; catalog changes can change the numbering.
 - Specific zones take priority over broader fallback regions. The filled anatomy is covered; surrounding background and spaces between limbs or digits cannot receive new markers.
 - Zoom, pan, and viewport height do not change the underlying normalized selection zones.
 
-## Full body
+## Full Body
 
 Front/back body maps include sided ears, shoulders, collarbones, armpits, chest, nipples, back, shoulder blades, pelvis, groin, buttocks, limbs, inner thighs, and feet. The head remains a broader **Head** suggestion in these full-body views; use the detailed head category for facial features. Nipple zones use the front SVG circles with 50% larger radii.
 
@@ -29,6 +29,12 @@ The five head sketches provide view-specific suggestions for the face, scalp, ba
 
 [Open the full-size head map](images/body-regions/head.png)
 
+<p align="center">
+    <img src="images/head-framed.svg" width="680" alt="Head tab with front and back sketches and both profile views below">
+    <br>
+    <sub>The Head tab starts with the front and back sketches. Scroll down for profiles and the top view.</sub>
+</p>
+
 ## Hands
 
 Palmar and dorsal views distinguish the subject’s left/right hands and fingers. Broader hand, wrist, forearm, and palm labels cover the remaining areas.
@@ -36,6 +42,12 @@ Palmar and dorsal views distinguish the subject’s left/right hands and fingers
 ![Left and right palmar and dorsal hand region selection maps](images/body-regions/hands.png)
 
 [Open the full-size hand map](images/body-regions/hands.png)
+
+<p align="center">
+    <img src="images/hands-framed.svg" width="680" alt="Hands tab showing left and right palmar sketches with dorsal views below">
+    <br>
+    <sub>The Hands tab pairs left and right palms above the backs of the hands.</sub>
+</p>
 
 ## Feet
 
@@ -45,7 +57,13 @@ Dorsal and plantar views identify each sided toe, including its edges. Plantar v
 
 [Open the full-size foot map](images/body-regions/feet.png)
 
-## Region field behavior
+<p align="center">
+    <img src="images/feet-framed.svg" width="680" alt="Feet tab showing left and right dorsal sketches with plantar views below">
+    <br>
+    <sub>The Feet tab pairs the tops of both feet above the views of the soles.</sub>
+</p>
+
+## Region Field Behavior
 
 The Region field offers standard choices in a full-width dropdown styled to
 match Type, and accepts custom text. Typing filters the choices; use the arrow
@@ -68,7 +86,7 @@ Review or refine the text as needed. The body front and back mappings use the
 subject's anatomical left and right; detailed head, hand, and foot sketches
 have their own mappings.
 
-The catalogue includes 99 standard regions, including groin, left/right inner
+The catalog includes 99 standard regions, including groin, left/right inner
 thighs, nipples, collarbones, armpits, upper chest, and left/right buttocks;
 shoulder blades, flanks, hips, elbows, wrists, ankles, palms, soles, and heels;
 each finger and toe on both sides; upper/lower abdomen; and facial features
@@ -92,15 +110,15 @@ $observation->update(['region' => 'Posterior right upper arm, near elbow']);
 
 `region` remains a nullable string, with no enum cast or migration. The Vue
 workspace includes the choices by default. For custom interfaces,
-`resources/js/observationRegions.js` exports the `bodyRegions` catalogue and
+`resources/js/observationRegions.js` exports the `bodyRegions` catalog and
 `suggestRegion({ sketch_id, x, y })`, which returns a standard label or `null`.
-The JSON catalogue in `resources/body-regions.json` is checked against the PHP
+The JSON catalog in `resources/body-regions.json` is checked against the PHP
 enum. Suggestions are a frontend convenience; the models and HTTP routes
 preserve the region string supplied by the caller.
 
-## JavaScript lookup
+## JavaScript Lookup
 
-Custom Vue interfaces can use the same catalogue and suggestion function:
+Custom Vue interfaces can use the same catalog and suggestion function:
 
 ```js
 import {bodyRegions, suggestRegion} from '../../vendor/spawaskar/human-examinations/resources/js/observationRegions.js';
@@ -114,7 +132,7 @@ Adjust the import path for the host file's location. The result is a string labe
 or `null`; placement validation belongs to the sketch component, while the
 server accepts the region text supplied by the host.
 
-## Standard region catalogue
+## Standard Region Catalog
 
 PHP cases are in [`BodyRegion.php`](../src/Enums/BodyRegion.php). The matching frontend keys and labels are in [`body-regions.json`](../resources/body-regions.json). Save the string label in `region`; the reference number is only a map key.
 
@@ -220,7 +238,7 @@ PHP cases are in [`BodyRegion.php`](../src/Enums/BodyRegion.php). The matching f
 | 98 | `RightFourthToe` | Right fourth toe |
 | 99 | `RightLittleToe` | Right little toe |
 
-## Sketch identifiers
+## Sketch Identifiers
 
 Store stable sketch IDs with normalized coordinates. The [workspace guide](workspace.md#anatomical-views) explains how category selection displays related sketches.
 
@@ -231,12 +249,12 @@ Store stable sketch IDs with normalized coordinates. The [workspace guide](works
 | Hands | `hand-left-palmar`, `hand-right-palmar`, `hand-left-dorsal`, `hand-right-dorsal` |
 | Feet | `foot-left-dorsal`, `foot-right-dorsal`, `foot-left-plantar`, `foot-right-plantar` |
 
-## Maintaining the reference
+## Maintaining the Reference
 
-1. Keep PHP enum cases and the frontend catalogue aligned when changing region choices.
+1. Keep PHP enum cases and the frontend catalog aligned when changing region choices.
 2. Update [`observationRegions.js`](../resources/js/observationRegions.js) when changing semantic selection zones.
 3. After changing SVG artwork, run `php scripts/generate-region-surfaces.php` from the repository root to regenerate filled surfaces and nipple landmarks. The generator does not regenerate these PNG images.
-4. Refresh all four reference images when zones, artwork, or catalogue order change; keep their numbered legends aligned with the catalogue table.
+4. Refresh all four reference images when zones, artwork, or catalog order change; keep their numbered legends aligned with the catalog table.
 5. Run `npm test`, `composer test:unit -- --filter=BodyRegionTest`, and `npm run build` as appropriate for the changes.
 
-See [the SVG source and attribution notes](../resources/sketches/README.md) for artwork provenance, retained permission metadata, and generation tolerances. The illustrations use the package’s original attributed sketches; selection zones and colors are package reference overlays.
+See [the SVG Source and Attribution Notes](../resources/sketches/README.md) for artwork provenance, retained permission metadata, and generation tolerances. The illustrations use the package’s original attributed sketches; selection zones and colors are package reference overlays.
