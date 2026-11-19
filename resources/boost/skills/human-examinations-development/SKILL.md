@@ -68,7 +68,7 @@ Read before executing:
 - `docs/installation.md` and `docs/integration.md` for publishing, authorization, routes, and persistence callbacks
 - `docs/workspace.md` for component integration, navigation, marker placement, density, and history
 - `docs/body-regions.md` for illustrated selection maps, the 99 region choices, and editable region behavior
-- `docs/api.md` for models, observation types, coordinates, and validation; `docs/development.md` for the workbench and known limitations
+- `docs/api.md` for models, observation types, coordinates, and validation; `docs/development.md` for the workbench and validation commands
 - `src/Models/Examination.php` and `src/Models/Observation.php` for model APIs
 - `config/human-examinations.php`, `routes/human-examinations.php`, and `src/Http/Controllers/ExaminationController.php` for optional route configuration and authorization
 - `src/Http/Controllers/ObservationController.php` for parent-scoped observation HTTP behavior and validation

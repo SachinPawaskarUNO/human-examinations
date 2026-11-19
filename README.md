@@ -74,7 +74,7 @@ composer serve
 
 `composer serve` and `composer build` recreate the demo database. To preserve existing records, restart with `composer exec -- testbench serve`; use `--port=18271` if another local app occupies the default port. Frontend-only rebuilds use `composer build:assets`.
 
-See the [development guide](docs/development.md) for the complete setup, validation commands, and [known limitations](docs/development.md#known-limitations).
+See the [development guide](docs/development.md) for the complete setup, validation commands, and region-map maintenance.
 
 ## Changelog
 

@@ -9,7 +9,7 @@ Guides for installing and integrating `spawaskar/human-examinations`, using the 
 | [Body regions](body-regions.md) | Illustrated selection maps and all 99 region choices |
 | [Application integration](integration.md) | Authorization, routes, actions, and persistence callbacks |
 | [Models and API](api.md) | Models, observation types, coordinates, and validation |
-| [Development and workbench](development.md) | Native Composer demo, validation, maintenance, and known limitations |
+| [Development and workbench](development.md) | Native Composer demo, validation, and region-map maintenance |
 
 Start with [installation](installation.md), then [application integration](integration.md). The [workspace guide](workspace.md) covers the UI, and the [body-region reference](body-regions.md) explains how marker locations suggest regions.
 

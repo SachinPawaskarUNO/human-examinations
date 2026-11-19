@@ -213,6 +213,6 @@ from its expected state, history is cleared rather than replacing that state.
 This is session-local history, not a multi-user revision log or server-side
 optimistic locking.
 
-## Coordinates and current limitations
+## Coordinates
 
-See [observation locations](api.md#observation-locations) for storage and model validation. The [known limitations](development.md#known-limitations) include the examination metadata save issues and local undo behavior identified in review.
+See [observation locations](api.md#observation-locations) for storage and model validation.

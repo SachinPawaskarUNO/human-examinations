@@ -148,4 +148,4 @@ In a repository checkout, the complete workbench examples are [the page componen
 
 ## Examination metadata
 
-The workspace emits `new-examination(details)` and updates its `examination` model when examination details change. The host owns creation and metadata persistence; these events do not use the observation `complete()` callback contract. The current workbench has known metadata-save limitations described in [development notes](development.md#known-limitations).
+The workspace emits `new-examination(details)` and updates its `examination` model when examination details change. The host owns creation and metadata persistence; these events do not use the observation `complete()` callback contract.
