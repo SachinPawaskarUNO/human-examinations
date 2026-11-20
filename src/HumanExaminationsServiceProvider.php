@@ -112,9 +112,7 @@ class HumanExaminationsServiceProvider extends ServiceProvider
             __DIR__.'/../public' => public_path('vendor/human-examinations'),
         ], ['human-examinations', 'human-examinations-assets']);
 
-        $this->publishesMigrations([
-            __DIR__.'/../database/migrations' => database_path('migrations'),
-        ], ['human-examinations', 'human-examinations-migrations']);
+        $this->publishes($this->migrationPublishPaths(), ['human-examinations', 'human-examinations-migrations']);
 
         $this->commands([
             HumanExaminationsCommand::class,
@@ -123,5 +121,24 @@ class HumanExaminationsServiceProvider extends ServiceProvider
             ListExaminationsCommand::class,
             ShowExaminationCommand::class,
         ]);
+    }
+
+    /** @return array<string, string> */
+    private function migrationPublishPaths(): array
+    {
+        $directory = database_path('migrations');
+        $paths = [];
+        $publishedAt = now();
+
+        foreach (glob(__DIR__.'/../database/migrations/*.php') ?: [] as $source) {
+            $filename = basename($source);
+            $name = explode('_', $filename, 5)[4] ?? $filename;
+            $published = glob($directory.'/????_??_??_??????_'.$name) ?: [];
+
+            // Keep a published migration's timestamp so Laravel sees the same migration on reruns.
+            $paths[$source] = $published[0] ?? $directory.'/'.$publishedAt->addSecond()->format('Y_m_d_His').'_'.$name;
+        }
+
+        return $paths;
     }
 }

@@ -7,10 +7,13 @@ namespace HumanExaminations\HumanExaminations\Tests\Feature;
 use HumanExaminations\HumanExaminations\Models\Examination;
 use HumanExaminations\HumanExaminations\Tests\TestCase;
 use Illuminate\Support\Facades\Schema;
+use Orchestra\Testbench\Attributes\DefineEnvironment;
 
 class ExaminationConsoleTest extends TestCase
 {
     private string $installPath;
+
+    private bool $hasPreviouslyPublishedMigration = false;
 
     protected function defineEnvironment($app): void
     {
@@ -19,6 +22,15 @@ class ExaminationConsoleTest extends TestCase
         $this->installPath = sys_get_temp_dir().'/human-examinations-install-'.bin2hex(random_bytes(8));
         $app->useConfigPath($this->installPath.'/config');
         $app->useDatabasePath($this->installPath.'/database');
+
+        if ($this->hasPreviouslyPublishedMigration) {
+            $directory = $this->installPath.'/database/migrations';
+            mkdir($directory, 0777, true);
+            copy(
+                __DIR__.'/../../database/migrations/2027_01_01_000000_create_initial_human_examinations_table.php',
+                $directory.'/2026_11_19_120001_create_initial_human_examinations_table.php',
+            );
+        }
     }
 
     protected function tearDown(): void
@@ -41,6 +53,7 @@ class ExaminationConsoleTest extends TestCase
 
     public function test_install_publishes_files_without_overwriting_config_or_running_migrations_by_default(): void
     {
+        $this->travelTo(now()->startOfSecond());
         $this->artisan('human-examinations:install', ['--no-interaction' => true])->assertSuccessful();
         $config = $this->installPath.'/config/human-examinations.php';
         $this->assertFileExists($config);
@@ -49,6 +62,7 @@ class ExaminationConsoleTest extends TestCase
         $this->assertFalse(Schema::hasTable('human_examinations'));
 
         file_put_contents($config, "<?php return ['host' => true];");
+        $this->travel(1)->minutes();
         $this->artisan('human-examinations:install', ['--migrate' => true, '--no-interaction' => true])->assertSuccessful();
         $this->assertSame(['host' => true], require $config);
         $this->assertSame($migrations, glob($this->installPath.'/database/migrations/*.php'));
@@ -63,6 +77,24 @@ class ExaminationConsoleTest extends TestCase
             ->assertSuccessful();
         $this->assertFileExists($this->installPath.'/config/human-examinations.php');
         $this->assertFalse(Schema::hasTable('human_examinations'));
+    }
+
+    #[DefineEnvironment('withPreviouslyPublishedMigration')]
+    public function test_install_reuses_a_migration_published_with_an_older_timestamp(): void
+    {
+        $migrations = glob($this->installPath.'/database/migrations/*.php');
+        $this->assertCount(1, $migrations);
+
+        $this->artisan('migrate')->assertSuccessful();
+        $this->artisan('human-examinations:install', ['--migrate' => true, '--no-interaction' => true])->assertSuccessful();
+
+        $this->assertSame($migrations, glob($this->installPath.'/database/migrations/*.php'));
+        $this->assertDatabaseCount('migrations', 1);
+    }
+
+    protected function withPreviouslyPublishedMigration(): void
+    {
+        $this->hasPreviouslyPublishedMigration = true;
     }
 
     public function test_create_accepts_script_options_and_rejects_invalid_dates(): void
