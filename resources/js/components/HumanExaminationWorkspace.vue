@@ -576,6 +576,7 @@ function details(o) {
                     <AnatomicalViews
                         :marker-colors="markerColors"
                         :density-enabled="features.density !== false"
+                        :png-export-enabled="features.export !== false && canEditObservations"
                         :initial-diagram-height="Number.isFinite(workspaceDefaults.diagram_height) ? workspaceDefaults.diagram_height : undefined"
                         ref="anatomicalViews"
                         v-model:view="activeView"
