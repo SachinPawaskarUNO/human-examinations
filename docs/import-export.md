@@ -4,6 +4,10 @@
 
 ## Workspace Controls
 
+Use **Export PNG** beside a sketch title to download the full sketch with its
+saved numbered markers. The image uses the workspace's marker colors and
+ignores the current zoom, pan, and display mode.
+
 Use **Export → Export JSON** for a portable examination, or **Export CSV** for a spreadsheet. **Import JSON** opens a file chooser and a confirmation showing the examination reference and observation count. Save or cancel an open observation form before transferring files.
 
 In the workbench, confirming an import creates a **new examination** and opens its workspace. Existing examinations remain unchanged. In the reusable workspace's default local mode, confirmation replaces its in-memory examination and observations instead; export first to keep a copy. A successful local import clears observation undo/redo history. Invalid files and failed requests leave the current examination intact and show errors. Failed imports can be retried from the confirmation.

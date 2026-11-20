@@ -7,6 +7,7 @@ import {initialSketchLocation, loadSketchHitArea, locationOnSketch} from '../ske
 import {clampCamera, fitDiagram, panCamera, wheelZoomFactor, zoomCamera} from '../diagramViewport.js';
 import ObservationHeatmap from './ObservationHeatmap.vue';
 import {buildHeatmaps} from '../observationDensity.js';
+import {exportSketchPng} from '../examinationPng.js';
 
 const props = defineProps({
     observations: {type: Array, default: () => []},
@@ -18,6 +19,7 @@ const props = defineProps({
     densityEnabled: {type: Boolean, default: true},
     markerColors: {type: Object, default: () => ({})},
     initialDiagramHeight: {type: Number, default: 560},
+    pngExportEnabled: Boolean,
 });
 const emit = defineEmits(['place', 'select']);
 const mode = defineModel('mode', {type: String, default: 'pins'});
@@ -26,7 +28,23 @@ const canPlace = computed(() => props.placementEnabled && !props.disabled && !de
 const hitAreas = shallowRef({});
 const outlineErrors = ref({});
 const placementMessage = ref('');
+const exportingSketch = ref(null);
+const pngExportError = ref(null);
 let placementTimer;
+
+async function downloadSketch(sketch) {
+    if (!props.pngExportEnabled || props.disabled || exportingSketch.value) return;
+
+    exportingSketch.value = sketch.id;
+    pngExportError.value = null;
+    try {
+        await exportSketchPng(sketch, props.observations, props.markerColors);
+    } catch {
+        pngExportError.value = sketch.id;
+    } finally {
+        exportingSketch.value = null;
+    }
+}
 
 function dismissPlacementWarning() {
     clearTimeout(placementTimer);
@@ -441,7 +459,22 @@ watch(
                 class="he-diagram"
                 :data-sketch="sketch.id"
             >
-                <figcaption class="he-diagram-caption">{{ sketch.label }}</figcaption>
+                <figcaption class="he-diagram-caption">
+                    {{ sketch.label }}
+                    <button
+                        v-if="pngExportEnabled"
+                        type="button"
+                        class="he-png-button"
+                        :aria-label="`Export PNG for ${sketch.label}`"
+                        :disabled="disabled || Boolean(exportingSketch) || failed[sketch.id]"
+                        @click="downloadSketch(sketch)"
+                    >
+                        {{ exportingSketch === sketch.id ? 'Exporting…' : 'Export PNG' }}
+                    </button>
+                </figcaption>
+                <p v-if="pngExportError === sketch.id" class="he-diagram-error" role="alert">
+                    Could not export this sketch. Please try again.
+                </p>
 
                 <p v-if="failed[sketch.id]" class="he-diagram-error" role="alert">
                     This anatomical view could not be loaded. Select another view or
@@ -717,16 +750,35 @@ watch(
 }
 
 .he-diagram-caption {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
     margin-bottom: 1rem;
     text-align: center;
     font-weight: 600;
 }
 
 .he-diagrams--paired .he-diagram-caption {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     min-height: 2.8em;
+}
+
+.he-png-button {
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--he-border, #e5e5e5);
+    border-radius: 0.375rem;
+    background: var(--he-background, #fff);
+    color: inherit;
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.he-png-button:disabled {
+    opacity: 0.45;
+    cursor: default;
 }
 
 .he-diagram-surface {

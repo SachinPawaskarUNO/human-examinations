@@ -187,6 +187,7 @@ test('transfer controls work locally and require explicit callbacks for persiste
     assert.match(local, /Import JSON/);
     assert.match(local, /Export JSON/);
     assert.match(local, /Export CSV/);
+    assert.match(local, /aria-label="Export PNG for Body · Front/);
     assert.match(local, /Imported reference/);
     assert.match(local, /accept=".json,application\/json"/);
 
@@ -213,6 +214,7 @@ test('hosts can disable workspace features independently and override observatio
     const exportDisabled = await render(Workspace, {features: {export: false}});
     assert.match(exportDisabled, /Import JSON/);
     assert.doesNotMatch(exportDisabled, /Export JSON/);
+    assert.doesNotMatch(exportDisabled, /Export PNG/);
 });
 
 test('workspace defaults select the starting anatomy, display mode, and slider height', async () => {
