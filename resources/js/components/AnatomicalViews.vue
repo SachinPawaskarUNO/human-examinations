@@ -15,10 +15,13 @@ const props = defineProps({
     placementEnabled: {type: Boolean, default: false},
     editingNumber: {type: Number, default: null},
     disabled: {type: Boolean, default: false},
+    densityEnabled: {type: Boolean, default: true},
+    markerColors: {type: Object, default: () => ({})},
+    initialDiagramHeight: {type: Number, default: 560},
 });
 const emit = defineEmits(['place', 'select']);
 const mode = defineModel('mode', {type: String, default: 'pins'});
-const density = computed(() => mode.value === 'density');
+const density = computed(() => props.densityEnabled && mode.value === 'density');
 const canPlace = computed(() => props.placementEnabled && !props.disabled && !density.value);
 const hitAreas = shallowRef({});
 const outlineErrors = ref({});
@@ -143,7 +146,12 @@ const pairRatio = computed(
 
 const panel = ref(null);
 const zooms = shallowRef({});
-const diagramHeight = ref(560);
+const minDiagramHeight = 280;
+const maxDiagramHeight = 900;
+const diagramHeightStep = 20;
+const requestedHeight = Number.isFinite(props.initialDiagramHeight) ? props.initialDiagramHeight : 560;
+const roundedHeight = Math.round(requestedHeight / diagramHeightStep) * diagramHeightStep;
+const diagramHeight = ref(Math.min(maxDiagramHeight, Math.max(minDiagramHeight, roundedHeight)));
 const viewportSizes = shallowRef({});
 const pans = shallowRef({});
 const drag = shallowRef(null);
@@ -378,7 +386,7 @@ watch(
         </div>
 
         <div class="he-navigation" role="group" aria-label="Diagram navigation">
-            <div class="he-mode-toggle" role="group" aria-label="Map display">
+            <div v-if="densityEnabled" class="he-mode-toggle" role="group" aria-label="Map display">
                 <button type="button" aria-label="Pins" :aria-pressed="!density" :disabled="disabled" @click="changeMode('pins')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg> Pins
                 </button>
@@ -387,8 +395,19 @@ watch(
                 </button>
             </div>
             <label class="he-height-control" :for="`${tabId}-height`">
-                Height
-                <input :id="`${tabId}-height`" v-model.number="diagramHeight" type="range" min="280" max="900" step="20" aria-label="Diagram height" :aria-valuetext="`${diagramHeight} pixels`" :style="{ '--he-height-progress': `${(diagramHeight - 280) / 620 * 100}%` }" :disabled="disabled"/>
+                View height
+                <input
+                    :id="`${tabId}-height`"
+                    v-model.number="diagramHeight"
+                    type="range"
+                    :min="minDiagramHeight"
+                    :max="maxDiagramHeight"
+                    :step="diagramHeightStep"
+                    aria-label="View height"
+                    :aria-valuetext="`${diagramHeight} pixels`"
+                    :style="{ '--he-height-progress': `${(diagramHeight - minDiagramHeight) / (maxDiagramHeight - minDiagramHeight) * 100}%` }"
+                    :disabled="disabled"
+                />
                 <output :for="`${tabId}-height`">{{ diagramHeight }} px</output>
             </label>
         </div>
@@ -480,7 +499,7 @@ watch(
                                 class="he-marker"
                                 :class="{ 'he-marker--selected': selectedNumber === marker.number }"
                                 :data-observation="marker.number"
-                                :style="{ ...position(marker.location), ...observationStyle(marker.type) }"
+                                :style="{ ...position(marker.location), ...observationStyle(marker.type, markerColors) }"
                                 :aria-label="`Observation ${marker.number}, ${observationType(marker.type)}${marker.label ? `: ${marker.label}` : ''}${marker.number === editingNumber && canPlace ? '. Arrow keys move it.' : ''}`"
                                 :aria-pressed="selectedNumber === marker.number"
                                 :disabled="disabled"
@@ -494,7 +513,7 @@ watch(
                                 type="button"
                                 class="he-marker he-marker--draft"
                                 data-draft-marker
-                                :style="{ ...position(preview), ...observationStyle(draftLocation.type) }"
+                                :style="{ ...position(preview), ...observationStyle(draftLocation.type, markerColors) }"
                                 :aria-label="previewLabel"
                                 :disabled="!canPlace"
                                 @click.stop
@@ -542,7 +561,7 @@ watch(
         <div v-else class="he-legend" role="group" aria-label="Observation type legend">
             <span class="he-legend__title">Observation types</span>
             <ul v-if="legendTypes.length" class="he-legend__items">
-                <li v-for="type in legendTypes" :key="type" :style="observationStyle(type)">
+                <li v-for="type in legendTypes" :key="type" :style="observationStyle(type, markerColors)">
                     <span class="he-legend__swatch" aria-hidden="true"></span>
                     {{ type }}
                 </li>
@@ -785,6 +804,7 @@ watch(
 .he-zoom-controls,
 .he-height-control {
     display: flex;
+    margin-inline-start: auto;
     align-items: center;
     gap: 0.5rem;
     min-width: 0;

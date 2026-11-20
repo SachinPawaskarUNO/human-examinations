@@ -42,6 +42,10 @@ class ExaminationRoutesTest extends TestCase
         $this->assertFalse(config('human-examinations.routes.enabled'));
         $this->assertFalse(Route::has('human-examinations.examinations.store'));
         $this->assertFalse(Route::has('human-examinations.examinations.update'));
+        $this->assertFalse(Route::has('human-examinations.examinations.import'));
+        $this->assertFalse(Route::has('human-examinations.examinations.export'));
+        $this->postJson('/human-examinations/examinations/import')->assertNotFound();
+        $this->getJson('/human-examinations/examinations/1/export')->assertNotFound();
 
         $this->postJson('/human-examinations/examinations')->assertNotFound();
         $this->patchJson('/human-examinations/examinations/1')->assertNotFound();
