@@ -7,6 +7,7 @@ namespace HumanExaminations\HumanExaminations\Http\Controllers;
 use HumanExaminations\HumanExaminations\Actions\CreateExamination;
 use HumanExaminations\HumanExaminations\Actions\UpdateExamination;
 use HumanExaminations\HumanExaminations\Models\Examination;
+use HumanExaminations\HumanExaminations\Support\RecordRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -45,10 +46,9 @@ class ExaminationController
     {
         /** @var array{reference?: string|null, examiner?: string|null, date?: string|null, notes?: string|null} */
         return $request->validate([
-            'reference' => ['nullable', 'string', 'max:255'],
-            'examiner' => ['nullable', 'string', 'max:255'],
+            ...RecordRules::examination(),
+            // Preserve the HTTP API's existing acceptance of Laravel date input.
             'date' => ['nullable', 'date'],
-            'notes' => ['nullable', 'string'],
         ]);
     }
 }

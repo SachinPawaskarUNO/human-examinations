@@ -21,12 +21,6 @@ class WorkbenchServiceProvider extends ServiceProvider
     {
         $this->app->register(HumanExaminationsServiceProvider::class);
         $this->app->register(InertiaServiceProvider::class);
-
-        // The standalone demo opts in without requiring a host authentication setup.
-        config([
-            'human-examinations.routes.enabled' => true,
-            'human-examinations.routes.middleware' => ['web'],
-        ]);
     }
 
     /**
@@ -39,8 +33,5 @@ class WorkbenchServiceProvider extends ServiceProvider
 
         // `npm run dev` writes the Vite dev server URL here (see vite.config.js).
         Vite::useHotFile(dirname(__DIR__, 2).'/hot');
-
-        // After "New Examination", the package redirects to this route (see routes/web.php).
-        config(['human-examinations.workspace_route' => 'workbench.examinations.show']);
     }
 }

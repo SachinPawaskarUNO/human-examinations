@@ -15,6 +15,7 @@ workbench:
   install: true
   health: false
   discovers:
+    config: true
     web: true
     api: true
     commands: true

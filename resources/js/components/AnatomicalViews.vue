@@ -7,22 +7,44 @@ import {initialSketchLocation, loadSketchHitArea, locationOnSketch} from '../ske
 import {clampCamera, fitDiagram, panCamera, wheelZoomFactor, zoomCamera} from '../diagramViewport.js';
 import ObservationHeatmap from './ObservationHeatmap.vue';
 import {buildHeatmaps} from '../observationDensity.js';
+import {exportSketchPng} from '../examinationPng.js';
 
 const props = defineProps({
     observations: {type: Array, default: () => []},
     selectedNumber: {type: Number, default: null},
     draftLocation: {type: Object, default: null},
     placementEnabled: {type: Boolean, default: false},
+    editingNumber: {type: Number, default: null},
     disabled: {type: Boolean, default: false},
+    densityEnabled: {type: Boolean, default: true},
+    markerColors: {type: Object, default: () => ({})},
+    initialDiagramHeight: {type: Number, default: 560},
+    pngExportEnabled: Boolean,
 });
 const emit = defineEmits(['place', 'select']);
 const mode = defineModel('mode', {type: String, default: 'pins'});
-const density = computed(() => mode.value === 'density');
+const density = computed(() => props.densityEnabled && mode.value === 'density');
 const canPlace = computed(() => props.placementEnabled && !props.disabled && !density.value);
 const hitAreas = shallowRef({});
 const outlineErrors = ref({});
 const placementMessage = ref('');
+const exportingSketch = ref(null);
+const pngExportError = ref(null);
 let placementTimer;
+
+async function downloadSketch(sketch) {
+    if (!props.pngExportEnabled || props.disabled || exportingSketch.value) return;
+
+    exportingSketch.value = sketch.id;
+    pngExportError.value = null;
+    try {
+        await exportSketchPng(sketch, props.observations, props.markerColors);
+    } catch {
+        pngExportError.value = sketch.id;
+    } finally {
+        exportingSketch.value = null;
+    }
+}
 
 function dismissPlacementWarning() {
     clearTimeout(placementTimer);
@@ -54,7 +76,9 @@ const legendTypes = computed(() => [...new Set([
 ])].sort((a, b) => a.localeCompare(b)));
 
 function markersFor(sketchId) {
-    return markers.value.filter((marker) => marker.location.sketch_id === sketchId);
+    // A moved marker is drawn only at its new, unsaved location.
+    return markers.value.filter((marker) => marker.location.sketch_id === sketchId
+        && !(preview.value && marker.number === props.draftLocation?.number));
 }
 
 function position(location) {
@@ -101,17 +125,25 @@ async function placeFromKeyboard(event, sketch) {
     surface.querySelector('[data-draft-marker]')?.focus();
 }
 
-function refinePreview(event) {
+function refinePreview(event, from = preview.value) {
     const steps = {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]};
     if (!canPlace.value || !steps[event.key]) return;
     event.preventDefault();
     event.stopPropagation();
     const [dx, dy] = steps[event.key];
     const step = event.shiftKey ? 0.001 : 0.005;
-    const location = offsetLocation(preview.value, dx * step, dy * step);
+    const location = offsetLocation(from, dx * step, dy * step);
     if (location && placeOnAnatomy(location)) {
-        nextTick(() => revealMarker(panel.value?.querySelector('[data-draft-marker]')));
+        nextTick(() => {
+            const draftMarker = panel.value?.querySelector('[data-draft-marker]');
+            draftMarker?.focus();
+            revealMarker(draftMarker);
+        });
     }
+}
+
+function nudgeMarker(event, marker) {
+    if (marker.number === props.editingNumber) refinePreview(event, marker.location);
 }
 
 const view = defineModel('view', {type: String, default: 'body-front'});
@@ -132,7 +164,12 @@ const pairRatio = computed(
 
 const panel = ref(null);
 const zooms = shallowRef({});
-const diagramHeight = ref(560);
+const minDiagramHeight = 280;
+const maxDiagramHeight = 900;
+const diagramHeightStep = 20;
+const requestedHeight = Number.isFinite(props.initialDiagramHeight) ? props.initialDiagramHeight : 560;
+const roundedHeight = Math.round(requestedHeight / diagramHeightStep) * diagramHeightStep;
+const diagramHeight = ref(Math.min(maxDiagramHeight, Math.max(minDiagramHeight, roundedHeight)));
 const viewportSizes = shallowRef({});
 const pans = shallowRef({});
 const drag = shallowRef(null);
@@ -367,7 +404,7 @@ watch(
         </div>
 
         <div class="he-navigation" role="group" aria-label="Diagram navigation">
-            <div class="he-mode-toggle" role="group" aria-label="Map display">
+            <div v-if="densityEnabled" class="he-mode-toggle" role="group" aria-label="Map display">
                 <button type="button" aria-label="Pins" :aria-pressed="!density" :disabled="disabled" @click="changeMode('pins')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg> Pins
                 </button>
@@ -376,8 +413,19 @@ watch(
                 </button>
             </div>
             <label class="he-height-control" :for="`${tabId}-height`">
-                Height
-                <input :id="`${tabId}-height`" v-model.number="diagramHeight" type="range" min="280" max="900" step="20" aria-label="Diagram height" :aria-valuetext="`${diagramHeight} pixels`" :style="{ '--he-height-progress': `${(diagramHeight - 280) / 620 * 100}%` }" :disabled="disabled"/>
+                View height
+                <input
+                    :id="`${tabId}-height`"
+                    v-model.number="diagramHeight"
+                    type="range"
+                    :min="minDiagramHeight"
+                    :max="maxDiagramHeight"
+                    :step="diagramHeightStep"
+                    aria-label="View height"
+                    :aria-valuetext="`${diagramHeight} pixels`"
+                    :style="{ '--he-height-progress': `${(diagramHeight - minDiagramHeight) / (maxDiagramHeight - minDiagramHeight) * 100}%` }"
+                    :disabled="disabled"
+                />
                 <output :for="`${tabId}-height`">{{ diagramHeight }} px</output>
             </label>
         </div>
@@ -386,8 +434,13 @@ watch(
         </p>
         <p v-if="density" class="he-placement-help">Observation density by location. Switch to Pins to place or select markers.</p>
         <p v-if="canPlace" class="he-placement-help">
-            Click inside an anatomical outline to place a marker. For keyboard placement, focus a sketch and press
-            Enter.
+            <template v-if="editingNumber != null">
+                Click inside an anatomical outline to move marker {{ editingNumber }}, or focus it and use the arrow keys.
+            </template>
+            <template v-else>
+                Click inside an anatomical outline to place a marker. For keyboard placement, focus a sketch and press
+                Enter.
+            </template>
         </p>
 
         <div
@@ -406,7 +459,22 @@ watch(
                 class="he-diagram"
                 :data-sketch="sketch.id"
             >
-                <figcaption class="he-diagram-caption">{{ sketch.label }}</figcaption>
+                <figcaption class="he-diagram-caption">
+                    {{ sketch.label }}
+                    <button
+                        v-if="pngExportEnabled"
+                        type="button"
+                        class="he-png-button"
+                        :aria-label="`Export PNG for ${sketch.label}`"
+                        :disabled="disabled || Boolean(exportingSketch) || failed[sketch.id]"
+                        @click="downloadSketch(sketch)"
+                    >
+                        {{ exportingSketch === sketch.id ? 'Exporting…' : 'Export PNG' }}
+                    </button>
+                </figcaption>
+                <p v-if="pngExportError === sketch.id" class="he-diagram-error" role="alert">
+                    Could not export this sketch. Please try again.
+                </p>
 
                 <p v-if="failed[sketch.id]" class="he-diagram-error" role="alert">
                     This anatomical view could not be loaded. Select another view or
@@ -464,11 +532,12 @@ watch(
                                 class="he-marker"
                                 :class="{ 'he-marker--selected': selectedNumber === marker.number }"
                                 :data-observation="marker.number"
-                                :style="{ ...position(marker.location), ...observationStyle(marker.type) }"
-                                :aria-label="`Observation ${marker.number}, ${observationType(marker.type)}${marker.label ? `: ${marker.label}` : ''}`"
+                                :style="{ ...position(marker.location), ...observationStyle(marker.type, markerColors) }"
+                                :aria-label="`Observation ${marker.number}, ${observationType(marker.type)}${marker.label ? `: ${marker.label}` : ''}${marker.number === editingNumber && canPlace ? '. Arrow keys move it.' : ''}`"
                                 :aria-pressed="selectedNumber === marker.number"
                                 :disabled="disabled"
                                 @click.stop="emit('select', marker.number)"
+                                @keydown="nudgeMarker($event, marker)"
                             >
                                 <span aria-hidden="true">{{ marker.number }}</span>
                             </button>
@@ -477,7 +546,7 @@ watch(
                                 type="button"
                                 class="he-marker he-marker--draft"
                                 data-draft-marker
-                                :style="{ ...position(preview), ...observationStyle(draftLocation.type) }"
+                                :style="{ ...position(preview), ...observationStyle(draftLocation.type, markerColors) }"
                                 :aria-label="previewLabel"
                                 :disabled="!canPlace"
                                 @click.stop
@@ -525,7 +594,7 @@ watch(
         <div v-else class="he-legend" role="group" aria-label="Observation type legend">
             <span class="he-legend__title">Observation types</span>
             <ul v-if="legendTypes.length" class="he-legend__items">
-                <li v-for="type in legendTypes" :key="type" :style="observationStyle(type)">
+                <li v-for="type in legendTypes" :key="type" :style="observationStyle(type, markerColors)">
                     <span class="he-legend__swatch" aria-hidden="true"></span>
                     {{ type }}
                 </li>
@@ -681,16 +750,35 @@ watch(
 }
 
 .he-diagram-caption {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
     margin-bottom: 1rem;
     text-align: center;
     font-weight: 600;
 }
 
 .he-diagrams--paired .he-diagram-caption {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     min-height: 2.8em;
+}
+
+.he-png-button {
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--he-border, #e5e5e5);
+    border-radius: 0.375rem;
+    background: var(--he-background, #fff);
+    color: inherit;
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.he-png-button:disabled {
+    opacity: 0.45;
+    cursor: default;
 }
 
 .he-diagram-surface {
@@ -768,6 +856,7 @@ watch(
 .he-zoom-controls,
 .he-height-control {
     display: flex;
+    margin-inline-start: auto;
     align-items: center;
     gap: 0.5rem;
     min-width: 0;

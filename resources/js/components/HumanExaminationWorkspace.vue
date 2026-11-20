@@ -2,10 +2,12 @@
 import AnatomicalViews from './AnatomicalViews.vue';
 import RegionCombobox from './RegionCombobox.vue';
 import ObservationHistoryControls from './ObservationHistoryControls.vue';
+import ExaminationTransferControls from './ExaminationTransferControls.vue';
+import {createExaminationDocument, parseExaminationDocument, examinationCsv, downloadFile} from '../examinationTransfer.js';
 import {getObservationLocation} from '../observationLocations.js';
 import {observationStyle} from '../observationTypes.js';
 import {bodyRegions, suggestRegion} from '../observationRegions.js';
-import {sketches} from '../sketches.js';
+import {sketchGroups, sketches} from '../sketches.js';
 import {createObservationHistory, observationFields, sameObservation} from '../observationHistory.js';
 
 const props = defineProps({
@@ -13,9 +15,14 @@ const props = defineProps({
     types: {type: Array, default: () => []},
     // The host handles persistence through save-observation/delete-observation events.
     persistentObservations: {type: Boolean, default: false},
+    referenceLocked: {type: Boolean, default: false},
+    transferLimits: {type: Object, default: () => ({maxFileBytes: 10485760, maxObservations: 10000})},
+    features: {type: Object, default: () => ({})},
+    markerColors: {type: Object, default: () => ({})},
+    workspaceDefaults: {type: Object, default: () => ({})},
 });
 
-const emit = defineEmits(['new-examination', 'save-observation', 'delete-observation', 'restore-observation']);
+const emit = defineEmits(['new-examination', 'save-observation', 'delete-observation', 'restore-observation', 'import-examination', 'export-examination']);
 
 import {computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, ref, useId, watch} from 'vue';
 
@@ -71,6 +78,7 @@ function submitNewExamination() {
 }
 
 function updateExamination(key, value) {
+    if (transferPending.value) return;
     examination.value = {
         ...examination.value,
         [key]: value === '' ? null : value,
@@ -79,10 +87,26 @@ function updateExamination(key, value) {
 
 const FIELDS = observationFields;
 const observationPending = ref(false);
+const transferPending = ref(false);
+const workspacePending = computed(() => observationPending.value || transferPending.value);
+const importEnabled = computed(() => props.features.import !== false
+    && (!props.persistentObservations || Boolean(workspaceInstance.vnode.props?.onImportExamination)));
+const exportEnabled = computed(() => props.features.export !== false
+    && (!props.persistentObservations || Boolean(examination.value.id && workspaceInstance.vnode.props?.onExportExamination)));
 const observationErrors = ref({});
 const selectedNumber = ref(null);
-const activeView = ref('body-front');
-const mapMode = ref('pins');
+function defaultView() {
+    const requested = props.workspaceDefaults.default_view;
+    return sketchGroups.find(group => group.id === requested)?.views[0].id
+        ?? (sketches.some(sketch => sketch.id === requested) ? requested : 'body-front');
+}
+
+function defaultMode() {
+    return props.features.density !== false && props.workspaceDefaults.default_mode === 'density' ? 'density' : 'pins';
+}
+
+const activeView = ref(defaultView());
+const mapMode = ref(defaultMode());
 const anatomicalViews = ref(null);
 const observationForm = ref(null);
 const canEditObservations = computed(
@@ -95,8 +119,20 @@ const history = createObservationHistory();
 const undoChange = ref(null);
 const redoChange = ref(null);
 const historyNotice = ref('');
-const historyReady = computed(() => canEditObservations.value && !observationPending.value && !draft.value);
+const historyEnabled = computed(() => props.features.undo_redo !== false);
+const historyReady = computed(() => historyEnabled.value && canEditObservations.value && !workspacePending.value);
+const canUndo = computed(() => canReplayHistory(undoChange.value));
+const canRedo = computed(() => canReplayHistory(redoChange.value));
 let writeToken = 0;
+
+function canReplayHistory(change) {
+    if (!historyReady.value || !change) return false;
+    if (!draft.value) return true;
+
+    // Replaying a removal of a different observation leaves this draft intact.
+    return change.before !== null && change.after === null
+        && change.before.number !== draft.value.number;
+}
 
 function syncHistory() {
     undoChange.value = history.peek('undo');
@@ -104,6 +140,7 @@ function syncHistory() {
 }
 
 function rememberChange(before, after) {
+    if (!historyEnabled.value) return;
     history.record(before, after);
     syncHistory();
     historyNotice.value = '';
@@ -129,9 +166,13 @@ watch([() => examination.value?.id, () => props.persistentObservations], () => {
     resetHistory();
 });
 
+watch(historyEnabled, (enabled) => {
+    if (!enabled) resetHistory();
+});
+
 async function replayHistory(direction) {
     const change = history.peek(direction);
-    if (!change || !historyReady.value) return;
+    if (!canReplayHistory(change)) return;
     const expected = direction === 'undo' ? change.after : change.before;
     const target = direction === 'undo' ? change.before : change.after;
     if (!sameObservation(findObservation(expected ?? target), expected)) {
@@ -139,15 +180,18 @@ async function replayHistory(direction) {
         return;
     }
     const finished = () => {
+        if (!historyEnabled.value) return;
         if (!sameObservation(findObservation(expected ?? target), target)) {
             resetHistory('The observation list differs from the expected result. History has been cleared.');
             return;
         }
         history.accept(direction);
         syncHistory();
-        selectedNumber.value = target?.number ?? null;
-        mapMode.value = 'pins';
-        if (target?.sketch_id) activeView.value = target.sketch_id;
+        if (!draft.value) {
+            selectedNumber.value = target?.number ?? null;
+            mapMode.value = 'pins';
+            if (target?.sketch_id) activeView.value = target.sketch_id;
+        }
         historyNotice.value = direction === 'undo' ? 'Observation change undone.' : 'Observation change redone.';
     };
     if (props.persistentObservations) {
@@ -175,7 +219,7 @@ function historyKeyboard(event) {
     if (owner ? owner !== workspaceRoot.value : document.querySelectorAll('.he-workspace').length !== 1) return;
     const key = event.key.toLowerCase();
     const direction = key === 'z' ? (event.shiftKey ? 'redo' : 'undo') : key === 'y' ? 'redo' : null;
-    if (!direction || !historyReady.value || !history.peek(direction)) return;
+    if (!direction || !canReplayHistory(history.peek(direction))) return;
     event.preventDefault();
     replayHistory(direction);
 }
@@ -185,24 +229,51 @@ const regionEdited = ref(false);
 const regionInputId = `${useId()}-region`;
 const regionHelpId = `${regionInputId}-help`;
 const regionChoices = Object.values(bodyRegions);
-const draftHasSavedLocation = computed(() => Boolean(draft.value?.number != null
-    && getObservationLocation(observations.value.find((item) => item.number === draft.value.number)),
-));
-const placementEnabled = computed(() => canEditObservations.value
-    && !observationPending.value && !draftHasSavedLocation.value,
+const savedLocation = computed(() => draft.value?.number != null
+    ? getObservationLocation(observations.value.find((item) => item.number === draft.value.number))
+    : null,
 );
+const placementEnabled = computed(() => canEditObservations.value && !workspacePending.value);
+
+async function importExamination(file, complete) {
+    if (!importEnabled.value) { complete({_form: 'Import is unavailable.'}); return; }
+    if (observationPending.value || draft.value) { complete({_form: 'Save or cancel the current observation first.'}); return; }
+    if (props.persistentObservations) { emit('import-examination', file, complete); return; }
+    try {
+        const document = parseExaminationDocument(JSON.parse((await file.text()).replace(/^\uFEFF/, '')), {types: props.types, maxObservations: props.transferLimits.maxObservations});
+        examination.value = {...document.examination};
+        observations.value = document.observations.map(row => ({...row}));
+        writeToken++; observationErrors.value = {}; draft.value = null; selectedNumber.value = null;
+        resetHistory(); mapMode.value = defaultMode(); activeView.value = defaultView();
+        await nextTick(); complete();
+    } catch (error) { complete({_form: error.message}); }
+}
+
+function exportExamination(format, complete) {
+    if (!exportEnabled.value) { complete({_form: 'Export is unavailable.'}); return; }
+    if (observationPending.value || draft.value) { complete({_form: 'Save or cancel the current observation first.'}); return; }
+    if (props.persistentObservations) { emit('export-examination', format, complete); return; }
+    try {
+        const document = createExaminationDocument(examination.value, observations.value);
+        downloadFile(format === 'csv' ? examinationCsv(document) : JSON.stringify(document, null, 2) + '\n', `human-examination.${format}`, format === 'csv' ? 'text/csv;charset=utf-8' : 'application/json');
+        complete();
+    } catch (error) { complete({_form: error.message}); }
+}
+
 const draftLocation = computed(() => {
     const location = getObservationLocation(draft.value);
-    return location && !draftHasSavedLocation.value
-        ? {...location, number: draft.value.number, type: draft.value.type}
-        : null;
+    const saved = savedLocation.value;
+    if (!location || (saved && saved.sketch_id === location.sketch_id && saved.x === location.x && saved.y === location.y)) {
+        return null;
+    }
+    return {...location, number: draft.value.number, type: draft.value.type};
 });
 const draftLocationLabel = computed(() => sketches.find((sketch) => sketch.id === draft.value?.sketch_id)?.label
     ?? draft.value?.sketch_id,
 );
 
 function startNew() {
-    if (observationPending.value || !canEditObservations.value) return;
+    if (workspacePending.value || !canEditObservations.value) return;
     mapMode.value = 'pins';
     observationErrors.value = {};
     selectedNumber.value = null;
@@ -224,12 +295,13 @@ function startNew() {
 }
 
 function edit(observation) {
-    if (observationPending.value) return;
+    if (workspacePending.value) return;
     mapMode.value = 'pins';
     observationErrors.value = {};
     selectedNumber.value = observation.number;
-    // Saved values, including intentionally blank regions, belong to the user.
-    regionEdited.value = true;
+    // Saved values, including intentionally blank regions, belong to the user. A region that
+    // still matches the marker's suggestion follows the marker if it is moved.
+    regionEdited.value = !observation.region || observation.region !== suggestRegion(observation);
     tab.value = 'observations';
     if (sketches.some((sketch) => sketch.id === observation.sketch_id)) {
         activeView.value = observation.sketch_id;
@@ -242,7 +314,7 @@ function edit(observation) {
 }
 
 function selectObservation(number) {
-    if (observationPending.value) return;
+    if (workspacePending.value) return;
     const observation = observations.value.find((item) => item.number === number);
     if (!observation) return;
     edit(observation);
@@ -250,7 +322,7 @@ function selectObservation(number) {
 }
 
 function beginPlacement(observation) {
-    if (observationPending.value || getObservationLocation(observation)) return;
+    if (workspacePending.value || getObservationLocation(observation)) return;
     edit(observation);
     nextTick(() => anatomicalViews.value?.$el.querySelector('.he-diagram-map')?.focus());
 }
@@ -304,7 +376,7 @@ const missingType = computed(
 );
 
 async function save() {
-    if (missingType.value || observationPending.value || !canEditObservations.value) {
+    if (missingType.value || workspacePending.value || !canEditObservations.value) {
         return;
     }
 
@@ -357,7 +429,7 @@ async function save() {
 }
 
 function removeObservation(number) {
-    if (observationPending.value) return;
+    if (workspacePending.value) return;
     const before = observations.value.find((item) => item.number === number);
     if (!before) return;
     if (props.persistentObservations) {
@@ -395,9 +467,9 @@ function details(o) {
 <template>
     <div ref="workspaceRoot" class="he-workspace">
         <div class="he-toolbar">
-            <div v-if="examination.id" class="he-current">
+            <div v-if="examination.id || examination.reference || examination.examiner || examination.date" class="he-current">
                 <strong>{{
-                        examination.reference || `Examination #${examination.id}`
+                        examination.reference || (examination.id ? `Examination #${examination.id}` : 'Examination')
                     }}</strong>
                 <span
                     v-if="examination.examiner || examination.date"
@@ -411,18 +483,32 @@ function details(o) {
                 </span>
             </div>
 
-            <ObservationHistoryControls v-if="$slots.default" :undo-disabled="!historyReady || !undoChange" :redo-disabled="!historyReady || !redoChange" :editing="Boolean(draft)" @undo="replayHistory('undo')" @redo="replayHistory('redo')"/>
-            <button
-                type="button"
-                class="he-button he-button--primary"
-                :disabled="observationPending"
-                @click="openNewExamination"
-            >
-                <svg class="he-icon" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M5 12h14M12 5v14"/>
-                </svg>
-                New Examination
-            </button>
+            <ObservationHistoryControls v-if="$slots.default && historyEnabled" :undo-disabled="!canUndo" :redo-disabled="!canRedo" :editing="Boolean(draft)" @undo="replayHistory('undo')" @redo="replayHistory('redo')"/>
+            <div class="he-toolbar-actions">
+                <ExaminationTransferControls
+                    :disabled="workspacePending || Boolean(draft)"
+                    :import-enabled="importEnabled"
+                    :export-enabled="exportEnabled"
+                    :persistent="persistentObservations"
+                    :types="types"
+                    :max-file-bytes="transferLimits.maxFileBytes"
+                    :max-observations="transferLimits.maxObservations"
+                    @busy="transferPending = $event"
+                    @import="importExamination"
+                    @export="exportExamination"
+                />
+                <button
+                    type="button"
+                    class="he-button he-button--primary"
+                    :disabled="workspacePending"
+                    @click="openNewExamination"
+                >
+                    <svg class="he-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 12h14M12 5v14"/>
+                    </svg>
+                    New Examination
+                </button>
+            </div>
         </div>
         <p v-if="historyNotice" class="he-muted he-small" role="status">{{ historyNotice }}</p>
 
@@ -440,7 +526,7 @@ function details(o) {
                     New examination
                 </h2>
 
-                <label class="he-field">
+                <label v-if="!referenceLocked" class="he-field">
                     <span>Reference</span>
                     <input
                         v-model="newExamination.reference"
@@ -456,6 +542,7 @@ function details(o) {
                         v-model="newExamination.examiner"
                         class="he-input"
                         placeholder="Name or initials"
+                        :autofocus="referenceLocked"
                     />
                 </label>
 
@@ -487,19 +574,24 @@ function details(o) {
             <section class="he-card he-area" :class="{ 'he-area--anatomical': !$slots.default }" aria-label="Workspace area">
                 <slot>
                     <AnatomicalViews
+                        :marker-colors="markerColors"
+                        :density-enabled="features.density !== false"
+                        :png-export-enabled="features.export !== false && canEditObservations"
+                        :initial-diagram-height="Number.isFinite(workspaceDefaults.diagram_height) ? workspaceDefaults.diagram_height : undefined"
                         ref="anatomicalViews"
                         v-model:view="activeView"
                         v-model:mode="mapMode"
                         :observations="observations"
                         :selected-number="selectedNumber"
                         :draft-location="draftLocation"
+                        :editing-number="savedLocation ? draft.number : null"
                         :placement-enabled="placementEnabled"
-                        :disabled="observationPending"
+                        :disabled="workspacePending"
                         @place="placeObservation"
                         @select="selectObservation"
                     >
-                        <template #actions>
-                            <ObservationHistoryControls :undo-disabled="!historyReady || !undoChange" :redo-disabled="!historyReady || !redoChange" :editing="Boolean(draft)" @undo="replayHistory('undo')" @redo="replayHistory('redo')"/>
+                        <template v-if="historyEnabled" #actions>
+                            <ObservationHistoryControls :undo-disabled="!canUndo" :redo-disabled="!canRedo" :editing="Boolean(draft)" @undo="replayHistory('undo')" @redo="replayHistory('redo')"/>
                         </template>
                     </AnatomicalViews>
                 </slot>
@@ -549,7 +641,7 @@ function details(o) {
                         class="he-button he-button--primary he-button--icon"
                         aria-label="Add observation"
                         title="Add observation"
-                        :disabled="observationPending || !canEditObservations"
+                        :disabled="workspacePending || !canEditObservations"
                         @click="startNew"
                     >
                         <svg
@@ -567,8 +659,12 @@ function details(o) {
                         <span>Reference</span>
                         <input
                             class="he-input"
+                            :class="{ 'he-input--locked': referenceLocked }"
                             :value="examination.reference"
-                            placeholder="e.g. EX-2026-001"
+                            :placeholder="referenceLocked ? 'Generated automatically' : 'e.g. EX-2026-001'"
+                            :readonly="referenceLocked"
+                            :title="referenceLocked ? 'Generated automatically' : null"
+                            :disabled="transferPending"
                             @change="
                                 updateExamination(
                                     'reference',
@@ -583,6 +679,7 @@ function details(o) {
                         <input
                             class="he-input"
                             :value="examination.examiner"
+                            :disabled="transferPending"
                             placeholder="Name or initials"
                             @change="
                                 updateExamination(
@@ -599,6 +696,7 @@ function details(o) {
                             class="he-input"
                             type="date"
                             :value="examination.date"
+                            :disabled="transferPending"
                             @change="
                                 updateExamination('date', $event.target.value)
                             "
@@ -611,6 +709,7 @@ function details(o) {
                             class="he-input he-textarea"
                             rows="6"
                             :value="examination.notes"
+                            :disabled="transferPending"
                             placeholder="General findings and context…"
                             @change="
                                 updateExamination('notes', $event.target.value)
@@ -633,7 +732,7 @@ function details(o) {
                         </ul>
                     </div>
                     <form v-if="draft" ref="observationForm" class="he-form" @submit.prevent="save">
-                        <fieldset class="he-observation-fields" :disabled="observationPending">
+                        <fieldset class="he-observation-fields" :disabled="workspacePending">
                             <p class="he-form__title">
                                 {{
                                     draft.number === null
@@ -694,7 +793,7 @@ function details(o) {
                                     v-model="draft.region"
                                     name="region"
                                     :options="regionChoices"
-                                    :disabled="observationPending"
+                                    :disabled="workspacePending"
                                     :aria-describedby="regionHelpId"
                                     :aria-invalid="Boolean(observationErrors.region)"
                                     maxlength="255"
@@ -753,7 +852,8 @@ function details(o) {
                             <p class="he-muted he-small">
                                 <template v-if="getObservationLocation(draft)">
                                     Marker: {{ draftLocationLabel }}.
-                                    <template v-if="draftLocation">Save to keep this location.</template>
+                                    <template v-if="draftLocation">{{ savedLocation ? 'Moved. ' : '' }}Save to keep this location.</template>
+                                    <template v-else>Click a sketch to move it.</template>
                                 </template>
                                 <template v-else>Click a sketch to choose a marker location (optional).</template>
                             </p>
@@ -769,7 +869,7 @@ function details(o) {
                                 <button
                                     type="submit"
                                     class="he-button he-button--primary"
-                                    :disabled="missingType || observationPending"
+                                    :disabled="missingType || workspacePending"
                                     :title="
                                         missingType ? 'Choose a type to save' : null
                                     "
@@ -790,14 +890,14 @@ function details(o) {
                                 'he-item--selected': selectedNumber === o.number,
                             }"
                         >
-                            <span class="he-badge" :style="observationStyle(o.type)">{{ o.number }}</span>
+                            <span class="he-badge" :style="observationStyle(o.type, markerColors)">{{ o.number }}</span>
 
                             <button
                                 type="button"
                                 class="he-item__text he-item__select"
                                 :aria-label="`Select observation ${o.number}`"
                                 :aria-pressed="selectedNumber === o.number"
-                                :disabled="observationPending"
+                                :disabled="workspacePending"
                                 @click="selectObservation(o.number)"
                             >
                                 <strong>{{
@@ -816,7 +916,7 @@ function details(o) {
                                 class="he-button he-button--ghost he-button--icon-sm"
                                 :aria-label="`Place observation ${o.number}`"
                                 title="Place marker on a sketch"
-                                :disabled="observationPending"
+                                :disabled="workspacePending"
                                 @click="beginPlacement(o)"
                             >
                                 <svg class="he-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -830,7 +930,7 @@ function details(o) {
                                 class="he-button he-button--ghost he-button--icon-sm"
                                 :aria-label="`Edit observation ${o.number}`"
                                 title="Edit observation"
-                                :disabled="observationPending"
+                                :disabled="workspacePending"
                                 @click="selectObservation(o.number)"
                             >
                                 <svg
@@ -848,7 +948,7 @@ function details(o) {
                                 class="he-button he-button--ghost he-button--icon-sm"
                                 :aria-label="`Remove observation ${o.number}`"
                                 title="Remove observation"
-                                :disabled="observationPending"
+                                :disabled="workspacePending"
                                 @click="removeObservation(o.number)"
                             >
                                 <svg
@@ -917,11 +1017,17 @@ function details(o) {
 .he-toolbar {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 1rem;
 }
 
 /* Keeps the button on the right whether or not an examination is shown. */
-.he-toolbar > .he-button {
+.he-toolbar-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: .5rem;
     margin-left: auto;
 }
 
@@ -1304,6 +1410,12 @@ function details(o) {
     font: inherit;
     font-size: 0.875rem;
     box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+
+.he-input--locked {
+    background: var(--he-muted);
+    color: var(--he-muted-foreground);
+    cursor: not-allowed;
 }
 
 select.he-input {

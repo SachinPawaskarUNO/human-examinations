@@ -75,7 +75,7 @@ test('the default view offers category tabs and both body diagrams', async () =>
 
 test('anatomy offers zoom, reset, height, and keyboard-accessible viewport controls', async () => {
     const html = await render(AnatomicalViews);
-    for (const label of ['Zoom in', 'Zoom out', 'Reset view', 'Diagram height']) {
+    for (const label of ['Zoom in', 'Zoom out', 'Reset view', 'View height']) {
         assert.ok(html.includes(`aria-label="${label}"`), label);
     }
     assert.match(html, /100%/);
@@ -92,10 +92,10 @@ test('anatomy offers zoom, reset, height, and keyboard-accessible viewport contr
         assert.match(figure, /<circle\b/);
     }
     assert.equal([...html.matchAll(/aria-label="Zoom level"/g)].length, 2);
-    assert.equal([...html.matchAll(/aria-label="Diagram height"/g)].length, 1);
+    assert.equal([...html.matchAll(/aria-label="View height"/g)].length, 1);
 
     const disabled = await render(AnatomicalViews, {disabled: true});
-    for (const label of ['Zoom in', 'Zoom out', 'Reset view', 'Diagram height']) {
+    for (const label of ['Zoom in', 'Zoom out', 'Reset view', 'View height']) {
         assert.match(disabled, new RegExp(`<(?:button|input)\\b[^>]*aria-label="${label}"[^>]*disabled`));
     }
 });
@@ -182,6 +182,64 @@ test('the workspace includes the diagrams and keeps its existing default slot', 
     assert.doesNotMatch(custom, /data-sketch=/);
 });
 
+test('transfer controls work locally and require explicit callbacks for persistent workspaces', async () => {
+    const local = await render(Workspace, {examination: {reference: 'Imported reference'}});
+    assert.match(local, /Import JSON/);
+    assert.match(local, /Export JSON/);
+    assert.match(local, /Export CSV/);
+    assert.match(local, /aria-label="Export PNG for Body · Front/);
+    assert.match(local, /Imported reference/);
+    assert.match(local, /accept=".json,application\/json"/);
+
+    const persistent = await render(Workspace, {persistentObservations: true, examination: {id: 1}});
+    assert.doesNotMatch(persistent, /Import JSON|Export JSON|Export CSV/);
+    const empty = await render(Workspace, {persistentObservations: true, onImportExamination: () => {}, onExportExamination: () => {}});
+    assert.match(empty, /Import JSON/);
+    assert.doesNotMatch(empty, /Export JSON/);
+    const connected = await render(Workspace, {persistentObservations: true, examination: {id: 1}, onImportExamination: () => {}, onExportExamination: () => {}});
+    assert.match(connected, /Import JSON/);
+    assert.match(connected, /Export CSV/);
+});
+
+test('hosts can disable workspace features independently and override observation colors', async () => {
+    const html = await render(Workspace, {
+        features: {undo_redo: false, density: false, import: false},
+        markerColors: {Scar: {fill: '#123456', text: '#abcdef'}},
+        observations: [{number: 1, type: 'Scar', sketch_id: 'body-front', x: 0.5, y: 0.3}],
+    });
+    assert.doesNotMatch(html, /Import JSON|aria-label="Undo"|aria-label="Redo"|aria-label="Density"/);
+    assert.match(html, /Export JSON/);
+    assert.equal([...html.matchAll(/--he-observation-color:#123456;--he-observation-foreground:#abcdef/g)].length, 3);
+
+    const exportDisabled = await render(Workspace, {features: {export: false}});
+    assert.match(exportDisabled, /Import JSON/);
+    assert.doesNotMatch(exportDisabled, /Export JSON/);
+    assert.doesNotMatch(exportDisabled, /Export PNG/);
+});
+
+test('workspace defaults select the starting anatomy, display mode, and slider height', async () => {
+    const html = await render(Workspace, {
+        workspaceDefaults: {default_view: 'hands', default_mode: 'density', diagram_height: 640},
+    });
+    assert.match(html, /data-group="hands"[^>]*aria-selected="true"/);
+    assert.match(html, /aria-label="Density"[^>]*aria-pressed="true"/);
+    assert.match(html, /aria-valuetext="640 pixels"/);
+    assert.match(html, /--he-diagram-height:640px/);
+
+    const fallback = await render(Workspace, {
+        workspaceDefaults: {default_view: 'unknown', default_mode: 'density', diagram_height: 'invalid'},
+        features: {density: false},
+    });
+    assert.match(fallback, /data-group="body"[^>]*aria-selected="true"/);
+    assert.match(fallback, /aria-valuetext="560 pixels"/);
+    assert.doesNotMatch(fallback, /aria-label="Density"|Relative density/);
+
+    for (const [requested, expected] of [[100, 280], [651, 660], [1000, 900]]) {
+        const height = await render(Workspace, {workspaceDefaults: {diagram_height: requested}});
+        assert.ok(height.includes(`aria-valuetext="${expected} pixels"`));
+    }
+});
+
 test('persistent observations require a saved examination, while local mode remains usable', async () => {
     const blank = await render(Workspace, {persistentObservations: true});
     assert.match(blank, /aria-label="Add observation"[^>]*disabled/);
@@ -243,6 +301,31 @@ test('a pending location renders a draft marker without inventing a saved observ
     assert.match(html, /left:40%;top:60%/);
     assert.match(html, /Arrow keys/);
     assert.doesNotMatch(html, /data-observation=/);
+});
+
+test('a saved marker being moved is drawn only at its unsaved location', async () => {
+    const observations = [
+        {number: 1, type: 'Scar', sketch_id: 'body-front', x: 0.25, y: 0.5},
+        {number: 2, type: 'Tattoo', sketch_id: 'body-front', x: 0.6, y: 0.3},
+    ];
+
+    // Pin 1 is open and has been moved to the back view.
+    const moving = await render(AnatomicalViews, {
+        observations, editingNumber: 1, placementEnabled: true,
+        draftLocation: {number: 1, type: 'Scar', sketch_id: 'body-back', x: 0.4, y: 0.6},
+    });
+    assert.doesNotMatch(moving, /data-observation="1"/);
+    assert.match(moving, /data-observation="2"/);
+    const back = moving.match(/<figure\b[^>]*data-sketch="body-back"[^>]*>[\s\S]*?<\/figure>/)[0];
+    assert.match(back, /data-draft-marker/);
+    assert.match(back, /left:40%;top:60%/);
+    assert.match(moving, /move marker 1, or focus it and use the arrow keys/);
+
+    // Pin 1 is open but not moved yet.
+    const opened = await render(AnatomicalViews, {observations, editingNumber: 1, placementEnabled: true});
+    assert.match(opened, /data-observation="1"[^>]*aria-label="[^"]*Arrow keys move it\."/);
+    assert.doesNotMatch(opened, /data-observation="2"[^>]*aria-label="[^"]*Arrow keys/);
+    assert.doesNotMatch(opened, /data-draft-marker/);
 });
 
 test('the workspace passes saved locations to the sketches and offers initial placement for unmapped observations', async () => {
