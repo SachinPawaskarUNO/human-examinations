@@ -4,6 +4,7 @@ import HumanExaminationWorkspace from '../../../../resources/js/components/Human
 
 const props = defineProps({
     observationTypes: {type: Array, default: () => []},
+    referenceLocked: {type: Boolean, default: false},
     examination: {type: Object, default: null},
     examinationRoutes: {type: Object, required: true},
     observations: {type: Array, default: () => []},
@@ -87,6 +88,7 @@ function restoreObservation(observation, complete) {
             :key="props.examination?.id ?? 'none'"
             :examination="props.examination ?? undefined"
             :types="observationTypes"
+            :reference-locked="referenceLocked"
             :observations="props.observations"
             persistent-observations
             @update:examination="saveExamination"

@@ -16,6 +16,7 @@ $examinationRoutes = fn (?Examination $examination = null): array => [
 // Empty workspace, before an examination has been created.
 Route::get('/', fn () => Inertia::render('Workspace', [
     'observationTypes' => $observationTypes(),
+    'referenceLocked' => filled(config('human-examinations.reference_format')),
     'examination' => null,
     'examinationRoutes' => $examinationRoutes(),
     'observations' => [],
@@ -23,13 +24,14 @@ Route::get('/', fn () => Inertia::render('Workspace', [
 ]));
 
 // The workspace for one examination. The package redirects here after creating one
-// (see `workspace_route`, set in WorkbenchServiceProvider).
+// (see `workspace_route` in workbench/config/human-examinations.php).
 Route::get('/examinations/{examination}', function (Examination $examination) use ($observationTypes, $examinationRoutes, $examinationRouteName) {
     Gate::authorize('view', $examination);
     $observations = $examination->observations()->orderBy('number')->get();
 
     return Inertia::render('Workspace', [
         'observationTypes' => $observationTypes(),
+        'referenceLocked' => filled(config('human-examinations.reference_format')),
         'examination' => $examination,
         'examinationRoutes' => $examinationRoutes($examination),
         'observations' => $observations,

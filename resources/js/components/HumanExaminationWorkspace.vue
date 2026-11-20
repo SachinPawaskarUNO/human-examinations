@@ -13,6 +13,7 @@ const props = defineProps({
     types: {type: Array, default: () => []},
     // The host handles persistence through save-observation/delete-observation events.
     persistentObservations: {type: Boolean, default: false},
+    referenceLocked: {type: Boolean, default: false},
 });
 
 const emit = defineEmits(['new-examination', 'save-observation', 'delete-observation', 'restore-observation']);
@@ -185,17 +186,18 @@ const regionEdited = ref(false);
 const regionInputId = `${useId()}-region`;
 const regionHelpId = `${regionInputId}-help`;
 const regionChoices = Object.values(bodyRegions);
-const draftHasSavedLocation = computed(() => Boolean(draft.value?.number != null
-    && getObservationLocation(observations.value.find((item) => item.number === draft.value.number)),
-));
-const placementEnabled = computed(() => canEditObservations.value
-    && !observationPending.value && !draftHasSavedLocation.value,
+const savedLocation = computed(() => draft.value?.number != null
+    ? getObservationLocation(observations.value.find((item) => item.number === draft.value.number))
+    : null,
 );
+const placementEnabled = computed(() => canEditObservations.value && !observationPending.value);
 const draftLocation = computed(() => {
     const location = getObservationLocation(draft.value);
-    return location && !draftHasSavedLocation.value
-        ? {...location, number: draft.value.number, type: draft.value.type}
-        : null;
+    const saved = savedLocation.value;
+    if (!location || (saved && saved.sketch_id === location.sketch_id && saved.x === location.x && saved.y === location.y)) {
+        return null;
+    }
+    return {...location, number: draft.value.number, type: draft.value.type};
 });
 const draftLocationLabel = computed(() => sketches.find((sketch) => sketch.id === draft.value?.sketch_id)?.label
     ?? draft.value?.sketch_id,
@@ -228,8 +230,9 @@ function edit(observation) {
     mapMode.value = 'pins';
     observationErrors.value = {};
     selectedNumber.value = observation.number;
-    // Saved values, including intentionally blank regions, belong to the user.
-    regionEdited.value = true;
+    // Saved values, including intentionally blank regions, belong to the user. A region that
+    // still matches the marker's suggestion follows the marker if it is moved.
+    regionEdited.value = !observation.region || observation.region !== suggestRegion(observation);
     tab.value = 'observations';
     if (sketches.some((sketch) => sketch.id === observation.sketch_id)) {
         activeView.value = observation.sketch_id;
@@ -440,7 +443,7 @@ function details(o) {
                     New examination
                 </h2>
 
-                <label class="he-field">
+                <label v-if="!referenceLocked" class="he-field">
                     <span>Reference</span>
                     <input
                         v-model="newExamination.reference"
@@ -456,6 +459,7 @@ function details(o) {
                         v-model="newExamination.examiner"
                         class="he-input"
                         placeholder="Name or initials"
+                        :autofocus="referenceLocked"
                     />
                 </label>
 
@@ -493,6 +497,7 @@ function details(o) {
                         :observations="observations"
                         :selected-number="selectedNumber"
                         :draft-location="draftLocation"
+                        :editing-number="savedLocation ? draft.number : null"
                         :placement-enabled="placementEnabled"
                         :disabled="observationPending"
                         @place="placeObservation"
@@ -567,8 +572,11 @@ function details(o) {
                         <span>Reference</span>
                         <input
                             class="he-input"
+                            :class="{ 'he-input--locked': referenceLocked }"
                             :value="examination.reference"
-                            placeholder="e.g. EX-2026-001"
+                            :placeholder="referenceLocked ? 'Generated automatically' : 'e.g. EX-2026-001'"
+                            :readonly="referenceLocked"
+                            :title="referenceLocked ? 'Generated automatically' : null"
                             @change="
                                 updateExamination(
                                     'reference',
@@ -753,7 +761,8 @@ function details(o) {
                             <p class="he-muted he-small">
                                 <template v-if="getObservationLocation(draft)">
                                     Marker: {{ draftLocationLabel }}.
-                                    <template v-if="draftLocation">Save to keep this location.</template>
+                                    <template v-if="draftLocation">{{ savedLocation ? 'Moved. ' : '' }}Save to keep this location.</template>
+                                    <template v-else>Click a sketch to move it.</template>
                                 </template>
                                 <template v-else>Click a sketch to choose a marker location (optional).</template>
                             </p>
@@ -1304,6 +1313,12 @@ function details(o) {
     font: inherit;
     font-size: 0.875rem;
     box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+
+.he-input--locked {
+    background: var(--he-muted);
+    color: var(--he-muted-foreground);
+    cursor: not-allowed;
 }
 
 select.he-input {

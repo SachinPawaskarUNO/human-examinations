@@ -102,6 +102,45 @@ defaults to `Unspecified` (see [Observation Types](#observation-types)). Label,
 region, description, and measurements are nullable. Measurements use millimetres
 and decimal casts with two decimal places.
 
+### Examination References
+
+References are typed by users by default. To generate them automatically
+instead, publish the config file and set a format:
+
+```php
+'reference_format' => 'EX-{year}-{id:4}', // EX-2026-0042
+```
+
+| Placeholder | Value |
+|---|---|
+| `{id}` | The examination's ID, e.g. `42` |
+| `{id:4}` | The ID padded with zeros, e.g. `0042` |
+| `{year}`, `{month}`, `{day}` | The examination date, or the creation date if it has none |
+| `{random:6}` | Random uppercase letters and digits, e.g. `K7Q2ZP` |
+
+When a format is set, references are locked: `CreateExamination` always
+generates one, replacing any reference sent with the request, and
+`UpdateExamination` ignores reference changes while saving the other fields.
+Existing examinations keep their references. Include `{id}` or `{random}` if
+references should be unique.
+
+To show the lock in the workspace, pass `reference-locked` when a format is set;
+the Reference field is then hidden in the New Examination dialog and
+read-only in the Examination tab:
+
+```vue
+<HumanExaminationWorkspace :reference-locked="referenceLocked" ... />
+```
+
+```php
+'referenceLocked' => filled(config('human-examinations.reference_format')),
+```
+
+The format is applied by the `CreateExamination` action, which the package's
+HTTP create route uses; calling `Examination::create()` directly does not apply
+it. To generate references another way, extend `CreateExamination`, override
+`formatReference()`, and register your class under `actions.create_examination`.
+
 ### Observation Types
 
 An observation's `type` is cast to the
@@ -326,8 +365,14 @@ message. Observations can still be recorded without markers using **+**.
 For an existing observation without a marker, use **Place marker on a
 sketch** in the list, then choose a location. Unsaved markers have a dashed
 outline and remain previews until you save the observation. A failed save keeps
-both the form values and preview; Cancel discards the unsaved location. Editing
-an already mapped observation preserves its location.
+both the form values and preview; Cancel discards the unsaved location.
+
+To move a saved marker, select it, then click a new location inside an
+anatomical outline, or focus the marker and use the arrow keys. Until you save,
+the marker appears only as a dashed preview at its new location; Cancel returns
+it to its saved location. A region that still matches the suggestion for the old
+location changes to the suggestion for the new one; custom or blank regions are
+kept. Editing an observation without clicking a sketch preserves its location.
 
 For keyboard placement, focus a sketch and press Enter or Space to place a
 preview at its center when that point is on the anatomy, or at an interior
@@ -338,14 +383,18 @@ bounds, clamped to the image, and saved with six decimal
 places, so markers remain aligned when the diagrams resize or stack.
 
 Standalone `AnatomicalViews.vue` accepts `observations`, `selectedNumber`,
-`draftLocation`, `placementEnabled` (default false), and `disabled` props. It
-emits `place(location)` with `{ sketch_id, x, y }` and `select(number)`; the host
-owns the form, selection, and persistence. `draftLocation` may include a
-`number` for an existing unmarked observation and `type` to color the preview
-and include its type in the legend. Persisted markers remain
+`draftLocation`, `editingNumber`, `placementEnabled` (default false), and
+`disabled` props. It emits `place(location)` with `{ sketch_id, x, y }` and
+`select(number)`; the host owns the form, selection, and persistence.
+`draftLocation` may include a `number` for an existing observation and `type` to
+color the preview and include its type in the legend. Persisted markers remain
 selectable when placement is disabled, unless `disabled` is true. Incomplete or
 invalid locations are not drawn, and observations on other sketches remain in
-the list. Moving or clearing a saved marker remains follow-up work.
+the list. Set `editingNumber` to the number of a saved observation that is open
+for editing to let its marker move: when `draftLocation` has the same `number`,
+the saved marker is hidden and only the preview is drawn, and arrow keys on the
+saved marker start a preview from its location. Clearing a saved marker remains
+follow-up work.
 
 The outline check applies to placing and adjusting drafts in the bundled Vue
 component. Models and write routes continue to validate the coordinate tuple
@@ -565,9 +614,13 @@ composer serve
 Open **http://127.0.0.1:8000/**, or the address printed by the server. Composer
 prepares the SQLite database and builds the Vue assets into the Testbench
 application's public directory. The demo works without a separate Vite server.
-The standalone workbench explicitly enables its write routes with a permissive
-guest policy for demonstration; consuming applications use the policy setup
-above.
+The workbench's package settings live in `workbench/config/human-examinations.php`,
+a published copy of the package config like a host app would have. It enables
+the write routes without `auth`, sets the workspace route, and generates locked
+references as `EX-{year}-{id:4}`; edit it and restart the server to try other
+values. Testbench loads it because `testbench.yaml` enables `discovers.config`.
+The demo also uses a permissive guest policy; consuming applications use the
+policy setup above.
 
 Create an examination, then use **+** in Observations to add findings. Edits and
 removals are saved through the package routes; refresh the workspace to reload
