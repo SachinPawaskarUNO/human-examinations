@@ -85,13 +85,13 @@ values are not in the new enum will throw a `ValueError` when they are loaded.
 `Observation::typeEnum()` returns the configured enum class, for example to
 build a list of options for a form.
 
-## Observation locations
+## Observation Locations
 
 A location consists of a stable `sketch_id` (for example `body-front` or
 `hand-left-palmar`) and normalized `x`/`y` coordinates in the inclusive range
 0–1, measured from the sketch's top-left corner. Coordinates use six decimal
 places. Store identifiers, not asset URLs or filenames that change with builds.
-Anatomical left/right always refer to the subject. No sketch catalogue or region
+Anatomical left/right always refer to the subject. No sketch catalog or region
 inference is imposed by the models.
 
 For an observation without a diagram location, leave `sketch_id`, `x`, and `y`
@@ -109,6 +109,22 @@ authorized examination, since a direct observation query does not exclude
 observations of a soft-deleted examination. Permanently deleting an examination
 cascades to all its observations, including soft-deleted ones.
 
-## Actions and HTTP endpoints
+## Actions and HTTP Endpoints
+
+`ExportExamination::handle($examination)` returns a versioned portable document. `ImportExamination::handle($document)` validates and transactionally creates a new examination with its active observations. Both actions live under `HumanExaminations\HumanExaminations\Actions`; callers perform their own authorization. See [import and export](import-export.md) for JSON fields, CSV downloads, limits, and action overrides.
 
 See [application integration](integration.md#optional-http-routes) for the route table, authorization rules, action overrides, and redirect behavior. The [body-region reference](body-regions.md) lists every standard region and its selection map.
+
+## Serialized Records
+
+The workbench and portable export share an explicit list of examination and
+observation fields. Dates are serialized as `YYYY-MM-DD`, observation types as
+their enum values, and measurements and coordinates as fixed-precision decimal
+strings. Workspace data includes IDs for selecting and saving records. Portable
+exports omit IDs. Both omit storage timestamps and any extra model attributes.
+
+Host pages can build the same field projections with
+`Support\RecordData::examination($examination)` and
+`Support\RecordData::observation($observation)` under the package namespace.
+Authorize reads and add the IDs your workspace needs before sending the props.
+Regular Eloquent serialization remains available to host code.

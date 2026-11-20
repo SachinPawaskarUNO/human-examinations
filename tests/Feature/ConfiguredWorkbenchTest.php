@@ -8,8 +8,11 @@ use HumanExaminations\HumanExaminations\Enums\BodyRegion;
 use HumanExaminations\HumanExaminations\Models\Examination;
 use HumanExaminations\HumanExaminations\Tests\TestCase;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Route;
 use Inertia\Testing\AssertableInertia;
+use Orchestra\Testbench\Attributes\DefineEnvironment;
 use Orchestra\Testbench\Concerns\WithWorkbench;
 use Workbench\App\Policies\ExaminationPolicy;
 
@@ -43,8 +46,44 @@ class ConfiguredWorkbenchTest extends TestCase
         $this->get('/')->assertOk()->assertInertia(function (AssertableInertia $page): void {
             $page->component('Workspace', false)
                 ->where('examinationRoutes.store', route('demo.examinations.store'))
+                ->where('examinationRoutes.import', route('demo.examinations.import'))
+                ->where('examinationRoutes.export', [])
+                ->where('transferLimits.maxFileBytes', 10485760)
+                ->where('transferLimits.maxObservations', 10000)
                 ->where('examinationRoutes.update', null);
         });
+    }
+
+    #[DefineEnvironment('configureWorkspaceFeatures')]
+    public function test_workspace_settings_are_forwarded_and_disabled_transfer_routes_are_omitted(): void
+    {
+        $this->assertFalse(Route::has('demo.examinations.import'));
+        $this->assertTrue(Route::has('demo.examinations.export'));
+        $this->postJson('/demo/forensics/examinations/import')->assertStatus(405);
+
+        $examination = Examination::create([]);
+        foreach (['/', route('workbench.examinations.show', $examination)] as $url) {
+            $this->get($url)->assertOk()->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('Workspace', false)
+                ->where('examinationRoutes.import', null)
+                ->where('features.undo_redo', false)
+                ->where('features.import', false)
+                ->where('workspaceDefaults.default_view', 'head')
+                ->where('workspaceDefaults.default_mode', 'density')
+                ->where('workspaceDefaults.diagram_height', 640)
+                ->where('markerColors.Scar.fill', '#315a81'));
+        }
+    }
+
+    protected function configureWorkspaceFeatures($app): void
+    {
+        $app['config']->set('human-examinations.features', ['import' => false, 'undo_redo' => false]);
+        $app['config']->set('human-examinations.marker_colors', ['Scar' => ['fill' => '#315a81']]);
+        $app['config']->set('human-examinations.workspace', [
+            'default_view' => 'head',
+            'default_mode' => 'density',
+            'diagram_height' => 640,
+        ]);
     }
 
     public function test_an_examination_workspace_receives_the_configured_update_url(): void
@@ -55,6 +94,8 @@ class ConfiguredWorkbenchTest extends TestCase
             ->assertOk()->assertInertia(function (AssertableInertia $page) use ($examination): void {
                 $page->component('Workspace', false)
                     ->where('examinationRoutes.store', route('demo.examinations.store'))
+                    ->where('examinationRoutes.export.json', route('demo.examinations.export', ['examination' => $examination, 'format' => 'json']))
+                    ->where('examinationRoutes.export.csv', route('demo.examinations.export', ['examination' => $examination, 'format' => 'csv']))
                     ->where('examinationRoutes.update', route('demo.examinations.update', $examination));
             });
     }
@@ -72,18 +113,39 @@ class ConfiguredWorkbenchTest extends TestCase
         $this->assertSame('Saved in the demo', $examination->fresh()->notes);
     }
 
+    public function test_the_workbench_imports_into_a_new_workspace_without_overwriting_the_source(): void
+    {
+        $original = Examination::create(['reference' => 'Source']);
+        $original->observations()->create(['number' => 6, 'type' => 'Scar', 'region' => 'Manual region', 'sketch_id' => 'body-back', 'x' => 0.4, 'y' => 0.3]);
+        $json = $this->get(route('demo.examinations.export', $original))->assertOk()->streamedContent();
+        $this->post(route('demo.examinations.import'), ['file' => UploadedFile::fake()->createWithContent('export.json', $json)])
+            ->assertRedirect(route('workbench.examinations.show', 2));
+        $this->assertDatabaseCount('human_examinations', 2);
+        $this->assertSame('Source', $original->fresh()->reference);
+        $this->get(route('workbench.examinations.show', 2))->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Workspace', false)->where('examination.id', 2)->has('observations', 1)
+            ->where('observations.0.number', 6)->where('observations.0.region', 'Manual region')
+            ->where('observations.0.sketch_id', 'body-back')->where('observations.0.x', '0.400000'));
+    }
+
     public function test_the_workspace_loads_only_its_active_observations_in_number_order(): void
     {
-        $exam = Examination::create([]);
+        $exam = Examination::create(['date' => '2026-11-19']);
         $later = $exam->observations()->create(['number' => 8]);
-        $earlier = $exam->observations()->create(['number' => 2]);
+        $earlier = $exam->observations()->create(['number' => 2, 'type' => 'Scar', 'length_mm' => 12.5]);
         $exam->observations()->create(['number' => 3])->delete();
         Examination::create([])->observations()->create(['number' => 1]);
 
         $this->get(route('workbench.examinations.show', $exam))->assertOk()
             ->assertInertia(function (AssertableInertia $page) use ($exam, $earlier, $later): void {
                 $page->component('Workspace', false)->has('observations', 2)
+                    ->where('examination.date', '2026-11-19')
+                    ->missing('examination.created_at')
                     ->where('observations.0.id', $earlier->id)
+                    ->where('observations.0.examination_id', $exam->id)
+                    ->where('observations.0.type', 'Scar')
+                    ->where('observations.0.length_mm', '12.50')
+                    ->missing('observations.0.updated_at')
                     ->where('observations.1.id', $later->id)
                     ->where('observationRoutes.store', route('demo.observations.store', $exam))
                     ->where('observationRoutes.update.'.$earlier->id, route('demo.observations.update', [$exam, $earlier]))

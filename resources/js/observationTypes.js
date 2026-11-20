@@ -16,8 +16,7 @@ export function observationType(type) {
     return typeof type === 'string' && type.trim() ? type : 'Unspecified';
 }
 
-export function observationStyle(type) {
-    const label = observationType(type);
+function defaultStyle(label) {
     if (Object.hasOwn(colors, label)) {
         return {
             '--he-observation-color': colors[label],
@@ -31,5 +30,19 @@ export function observationStyle(type) {
     return {
         '--he-observation-color': `hsl(${hash % 360} 55% 72%)`,
         '--he-observation-foreground': '#171717',
+    };
+}
+
+function hexColor(value) {
+    return typeof value === 'string' && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(value) ? value : undefined;
+}
+
+export function observationStyle(type, overrides = {}) {
+    const label = observationType(type);
+    const style = defaultStyle(label);
+    const override = Object.hasOwn(overrides, label) ? overrides[label] : undefined;
+    return {
+        '--he-observation-color': hexColor(override?.fill) ?? style['--he-observation-color'],
+        '--he-observation-foreground': hexColor(override?.text) ?? style['--he-observation-foreground'],
     };
 }

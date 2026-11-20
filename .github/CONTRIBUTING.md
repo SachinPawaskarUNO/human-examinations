@@ -41,7 +41,7 @@ composer lint
 
 ## Tests
 
-Run PHP validation and the frontend catalogue/rendering tests:
+Run PHP validation and the frontend catalog/rendering tests:
 
 ```bash
 composer test

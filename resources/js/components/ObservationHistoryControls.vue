@@ -5,10 +5,10 @@ const emit = defineEmits(['undo', 'redo']);
 
 <template>
     <div class="he-history" role="group" aria-label="Observation history">
-        <button type="button" aria-label="Undo" aria-keyshortcuts="Control+Z Meta+Z" :disabled="undoDisabled" :title="editing ? 'Save or cancel the current edit first' : 'Undo last saved observation change (Ctrl+Z / Cmd+Z)'" @click="emit('undo')">
+        <button type="button" aria-label="Undo" aria-keyshortcuts="Control+Z Meta+Z" :disabled="undoDisabled" :title="editing && undoDisabled ? 'Save or cancel the current edit first' : 'Undo last saved observation change (Ctrl+Z / Cmd+Z)'" @click="emit('undo')">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5-5 5 5 5M4 10h10a6 6 0 0 1 0 12"/></svg> Undo
         </button>
-        <button type="button" aria-label="Redo" aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z Control+Y" :disabled="redoDisabled" :title="editing ? 'Save or cancel the current edit first' : 'Redo last undone observation change (Ctrl+Y / Cmd+Shift+Z)'" @click="emit('redo')">
+        <button type="button" aria-label="Redo" aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z Control+Y" :disabled="redoDisabled" :title="editing && redoDisabled ? 'Save or cancel the current edit first' : 'Redo last undone observation change (Ctrl+Y / Cmd+Shift+Z)'" @click="emit('redo')">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5 5 5-5 5M20 10H10a6 6 0 0 0 0 12"/></svg> Redo
         </button>
     </div>

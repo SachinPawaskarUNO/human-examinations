@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use HumanExaminations\HumanExaminations\Http\Controllers\ExaminationController;
+use HumanExaminations\HumanExaminations\Http\Controllers\ExaminationTransferController;
 use HumanExaminations\HumanExaminations\Http\Controllers\ObservationController;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Support\Facades\Route;
@@ -20,6 +21,15 @@ Route::middleware([
     ->scopeBindings()
     ->group(function (): void {
         Route::post('examinations', [ExaminationController::class, 'store'])->name('examinations.store');
+
+        if (config('human-examinations.features.import', true)) {
+            Route::post('examinations/import', [ExaminationTransferController::class, 'import'])->name('examinations.import');
+        }
+
+        if (config('human-examinations.features.export', true)) {
+            Route::get('examinations/{examination}/export', [ExaminationTransferController::class, 'export'])->name('examinations.export');
+        }
+
         Route::patch('examinations/{examination}', [ExaminationController::class, 'update'])->name('examinations.update');
 
         Route::post('examinations/{examination}/observations', [ObservationController::class, 'store'])->name('observations.store');

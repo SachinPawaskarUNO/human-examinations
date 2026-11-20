@@ -75,7 +75,7 @@ test('the default view offers category tabs and both body diagrams', async () =>
 
 test('anatomy offers zoom, reset, height, and keyboard-accessible viewport controls', async () => {
     const html = await render(AnatomicalViews);
-    for (const label of ['Zoom in', 'Zoom out', 'Reset view', 'Diagram height']) {
+    for (const label of ['Zoom in', 'Zoom out', 'Reset view', 'View height']) {
         assert.ok(html.includes(`aria-label="${label}"`), label);
     }
     assert.match(html, /100%/);
@@ -92,10 +92,10 @@ test('anatomy offers zoom, reset, height, and keyboard-accessible viewport contr
         assert.match(figure, /<circle\b/);
     }
     assert.equal([...html.matchAll(/aria-label="Zoom level"/g)].length, 2);
-    assert.equal([...html.matchAll(/aria-label="Diagram height"/g)].length, 1);
+    assert.equal([...html.matchAll(/aria-label="View height"/g)].length, 1);
 
     const disabled = await render(AnatomicalViews, {disabled: true});
-    for (const label of ['Zoom in', 'Zoom out', 'Reset view', 'Diagram height']) {
+    for (const label of ['Zoom in', 'Zoom out', 'Reset view', 'View height']) {
         assert.match(disabled, new RegExp(`<(?:button|input)\\b[^>]*aria-label="${label}"[^>]*disabled`));
     }
 });
@@ -180,6 +180,62 @@ test('the workspace includes the diagrams and keeps its existing default slot', 
     const custom = await render(Workspace, {}, {default: () => h('p', 'Custom workspace')});
     assert.match(custom, /Custom workspace/);
     assert.doesNotMatch(custom, /data-sketch=/);
+});
+
+test('transfer controls work locally and require explicit callbacks for persistent workspaces', async () => {
+    const local = await render(Workspace, {examination: {reference: 'Imported reference'}});
+    assert.match(local, /Import JSON/);
+    assert.match(local, /Export JSON/);
+    assert.match(local, /Export CSV/);
+    assert.match(local, /Imported reference/);
+    assert.match(local, /accept=".json,application\/json"/);
+
+    const persistent = await render(Workspace, {persistentObservations: true, examination: {id: 1}});
+    assert.doesNotMatch(persistent, /Import JSON|Export JSON|Export CSV/);
+    const empty = await render(Workspace, {persistentObservations: true, onImportExamination: () => {}, onExportExamination: () => {}});
+    assert.match(empty, /Import JSON/);
+    assert.doesNotMatch(empty, /Export JSON/);
+    const connected = await render(Workspace, {persistentObservations: true, examination: {id: 1}, onImportExamination: () => {}, onExportExamination: () => {}});
+    assert.match(connected, /Import JSON/);
+    assert.match(connected, /Export CSV/);
+});
+
+test('hosts can disable workspace features independently and override observation colors', async () => {
+    const html = await render(Workspace, {
+        features: {undo_redo: false, density: false, import: false},
+        markerColors: {Scar: {fill: '#123456', text: '#abcdef'}},
+        observations: [{number: 1, type: 'Scar', sketch_id: 'body-front', x: 0.5, y: 0.3}],
+    });
+    assert.doesNotMatch(html, /Import JSON|aria-label="Undo"|aria-label="Redo"|aria-label="Density"/);
+    assert.match(html, /Export JSON/);
+    assert.equal([...html.matchAll(/--he-observation-color:#123456;--he-observation-foreground:#abcdef/g)].length, 3);
+
+    const exportDisabled = await render(Workspace, {features: {export: false}});
+    assert.match(exportDisabled, /Import JSON/);
+    assert.doesNotMatch(exportDisabled, /Export JSON/);
+});
+
+test('workspace defaults select the starting anatomy, display mode, and slider height', async () => {
+    const html = await render(Workspace, {
+        workspaceDefaults: {default_view: 'hands', default_mode: 'density', diagram_height: 640},
+    });
+    assert.match(html, /data-group="hands"[^>]*aria-selected="true"/);
+    assert.match(html, /aria-label="Density"[^>]*aria-pressed="true"/);
+    assert.match(html, /aria-valuetext="640 pixels"/);
+    assert.match(html, /--he-diagram-height:640px/);
+
+    const fallback = await render(Workspace, {
+        workspaceDefaults: {default_view: 'unknown', default_mode: 'density', diagram_height: 'invalid'},
+        features: {density: false},
+    });
+    assert.match(fallback, /data-group="body"[^>]*aria-selected="true"/);
+    assert.match(fallback, /aria-valuetext="560 pixels"/);
+    assert.doesNotMatch(fallback, /aria-label="Density"|Relative density/);
+
+    for (const [requested, expected] of [[100, 280], [651, 660], [1000, 900]]) {
+        const height = await render(Workspace, {workspaceDefaults: {diagram_height: requested}});
+        assert.ok(height.includes(`aria-valuetext="${expected} pixels"`));
+    }
 });
 
 test('persistent observations require a saved examination, while local mode remains usable', async () => {
