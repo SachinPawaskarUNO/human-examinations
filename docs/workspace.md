@@ -165,8 +165,14 @@ message. Observations can still be recorded without markers using **+**.
 For an existing observation without a marker, use **Place marker on a
 sketch** in the list, then choose a location. Unsaved markers have a dashed
 outline and remain previews until you save the observation. A failed save keeps
-both the form values and preview; Cancel discards the unsaved location. Editing
-an already mapped observation preserves its location.
+both the form values and preview; Cancel discards the unsaved location.
+
+To move a saved marker, select it, then click a new location inside an
+anatomical outline, or focus the marker and use the arrow keys. Until you save,
+the marker appears only as a dashed preview at its new location; Cancel returns
+it to its saved location. A region that still matches the suggestion for the old
+location changes to the suggestion for the new one; custom or blank regions are
+kept. Editing an observation without clicking a sketch preserves its location.
 
 For keyboard placement, focus a sketch and press Enter or Space to place a
 preview at its center when that point is on the anatomy, or at an interior
@@ -177,14 +183,18 @@ bounds, clamped to the image, and saved with six decimal
 places, so markers remain aligned when the diagrams resize or stack.
 
 Standalone `AnatomicalViews.vue` accepts `observations`, `selectedNumber`,
-`draftLocation`, `placementEnabled` (default false), and `disabled` props. It
-emits `place(location)` with `{ sketch_id, x, y }` and `select(number)`; the host
-owns the form, selection, and persistence. `draftLocation` may include a
-`number` for an existing unmarked observation and `type` to color the preview
-and include its type in the legend. Persisted markers remain
+`draftLocation`, `editingNumber`, `placementEnabled` (default false), and
+`disabled` props. It emits `place(location)` with `{ sketch_id, x, y }` and
+`select(number)`; the host owns the form, selection, and persistence.
+`draftLocation` may include a `number` for an existing observation and `type` to
+color the preview and include its type in the legend. Persisted markers remain
 selectable when placement is disabled, unless `disabled` is true. Incomplete or
 invalid locations are not drawn, and observations on other sketches remain in
-the list. Moving or clearing a saved marker remains follow-up work.
+the list. Set `editingNumber` to the number of a saved observation that is open
+for editing to let its marker move: when `draftLocation` has the same `number`,
+the saved marker is hidden and only the preview is drawn, and arrow keys on the
+saved marker start a preview from its location. Clearing a saved marker remains
+follow-up work.
 
 The outline check applies to placing and adjusting drafts in the bundled Vue
 component. Models and write routes continue to validate the coordinate tuple

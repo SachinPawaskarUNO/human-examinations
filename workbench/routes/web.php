@@ -32,6 +32,7 @@ $workspaceOptions = fn (): array => [
 Route::get('/', fn () => Inertia::render('Workspace', [
     ...$workspaceOptions(),
     'observationTypes' => $observationTypes(),
+    'referenceLocked' => filled(config('human-examinations.reference_format')),
     'examination' => null,
     'examinationRoutes' => $examinationRoutes(),
     'transferLimits' => $transferLimits(),
@@ -40,7 +41,7 @@ Route::get('/', fn () => Inertia::render('Workspace', [
 ]));
 
 // The workspace for one examination. The package redirects here after creating one
-// (see `workspace_route`, set in WorkbenchServiceProvider).
+// (see `workspace_route` in workbench/config/human-examinations.php).
 Route::get('/examinations/{examination}', function (Examination $examination) use ($observationTypes, $examinationRoutes, $examinationRouteName, $transferLimits, $workspaceOptions) {
     Gate::authorize('view', $examination);
     $observations = $examination->observations()->orderBy('number')->get();
@@ -48,6 +49,7 @@ Route::get('/examinations/{examination}', function (Examination $examination) us
     return Inertia::render('Workspace', [
         ...$workspaceOptions(),
         'observationTypes' => $observationTypes(),
+        'referenceLocked' => filled(config('human-examinations.reference_format')),
         'examination' => ['id' => $examination->id, ...RecordData::examination($examination)],
         'examinationRoutes' => $examinationRoutes($examination),
         'transferLimits' => $transferLimits(),

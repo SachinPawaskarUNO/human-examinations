@@ -301,6 +301,31 @@ test('a pending location renders a draft marker without inventing a saved observ
     assert.doesNotMatch(html, /data-observation=/);
 });
 
+test('a saved marker being moved is drawn only at its unsaved location', async () => {
+    const observations = [
+        {number: 1, type: 'Scar', sketch_id: 'body-front', x: 0.25, y: 0.5},
+        {number: 2, type: 'Tattoo', sketch_id: 'body-front', x: 0.6, y: 0.3},
+    ];
+
+    // Pin 1 is open and has been moved to the back view.
+    const moving = await render(AnatomicalViews, {
+        observations, editingNumber: 1, placementEnabled: true,
+        draftLocation: {number: 1, type: 'Scar', sketch_id: 'body-back', x: 0.4, y: 0.6},
+    });
+    assert.doesNotMatch(moving, /data-observation="1"/);
+    assert.match(moving, /data-observation="2"/);
+    const back = moving.match(/<figure\b[^>]*data-sketch="body-back"[^>]*>[\s\S]*?<\/figure>/)[0];
+    assert.match(back, /data-draft-marker/);
+    assert.match(back, /left:40%;top:60%/);
+    assert.match(moving, /move marker 1, or focus it and use the arrow keys/);
+
+    // Pin 1 is open but not moved yet.
+    const opened = await render(AnatomicalViews, {observations, editingNumber: 1, placementEnabled: true});
+    assert.match(opened, /data-observation="1"[^>]*aria-label="[^"]*Arrow keys move it\."/);
+    assert.doesNotMatch(opened, /data-observation="2"[^>]*aria-label="[^"]*Arrow keys/);
+    assert.doesNotMatch(opened, /data-draft-marker/);
+});
+
 test('the workspace passes saved locations to the sketches and offers initial placement for unmapped observations', async () => {
     const html = await render(Workspace, {
         observations: [

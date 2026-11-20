@@ -16,9 +16,13 @@ composer serve
 Open **http://127.0.0.1:8000/**, or the address printed by the server. Composer
 prepares the SQLite database and builds the Vue assets into the Testbench
 application's public directory. The demo works without a separate Vite server.
-The standalone workbench explicitly enables its write routes with a permissive
-guest policy for demonstration; consuming applications use the policy setup
-in the [integration guide](integration.md#optional-http-routes).
+The workbench's package settings live in `workbench/config/human-examinations.php`,
+a published copy of the package config like a host app would have. It enables
+the write routes without `auth`, sets the workspace route, and generates locked
+references as `EX-{year}-{id:4}`; edit it and restart the server to try other
+values. Testbench loads it because `testbench.yaml` enables `discovers.config`.
+The demo also uses a permissive guest policy; consuming applications use the
+policy setup in the [integration guide](integration.md#optional-http-routes).
 
 Create an examination, then use **+** in Observations to add findings. Edits and
 removals are saved through the package routes; refresh the workspace to reload

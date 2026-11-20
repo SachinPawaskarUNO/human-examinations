@@ -202,3 +202,42 @@ In a repository checkout, the complete workbench examples are [the page componen
 ## Examination Metadata
 
 The workspace emits `new-examination(details)` and updates its `examination` model when examination details change. The host owns creation and metadata persistence; these events do not use the observation `complete()` callback contract.
+
+## Examination References
+
+References are typed by users by default. To generate them automatically
+instead, publish the config file and set a format:
+
+```php
+'reference_format' => 'EX-{year}-{id:4}', // EX-2026-0042
+```
+
+| Placeholder | Value |
+|---|---|
+| `{id}` | The examination's ID, e.g. `42` |
+| `{id:4}` | The ID padded with zeros, e.g. `0042` |
+| `{year}`, `{month}`, `{day}` | The examination date, or the creation date if it has none |
+| `{random:6}` | Random uppercase letters and digits, e.g. `K7Q2ZP` |
+
+When a format is set, references are locked: `CreateExamination` always
+generates one, replacing any reference sent with the request, and
+`UpdateExamination` ignores reference changes while saving the other fields.
+Existing examinations keep their references. Include `{id}` or `{random}` if
+references should be unique.
+
+To show the lock in the workspace, pass `reference-locked` when a format is set;
+the Reference field is then hidden in the New Examination dialog and
+read-only in the Examination tab:
+
+```vue
+<HumanExaminationWorkspace :reference-locked="referenceLocked" ... />
+```
+
+```php
+'referenceLocked' => filled(config('human-examinations.reference_format')),
+```
+
+The format is applied by the `CreateExamination` action, which the package's
+HTTP create route uses; calling `Examination::create()` directly does not apply
+it. To generate references another way, extend `CreateExamination`, override
+`formatReference()`, and register your class under `actions.create_examination`.

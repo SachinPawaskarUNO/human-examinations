@@ -13,6 +13,7 @@ const props = defineProps({
     selectedNumber: {type: Number, default: null},
     draftLocation: {type: Object, default: null},
     placementEnabled: {type: Boolean, default: false},
+    editingNumber: {type: Number, default: null},
     disabled: {type: Boolean, default: false},
     densityEnabled: {type: Boolean, default: true},
     markerColors: {type: Object, default: () => ({})},
@@ -57,7 +58,9 @@ const legendTypes = computed(() => [...new Set([
 ])].sort((a, b) => a.localeCompare(b)));
 
 function markersFor(sketchId) {
-    return markers.value.filter((marker) => marker.location.sketch_id === sketchId);
+    // A moved marker is drawn only at its new, unsaved location.
+    return markers.value.filter((marker) => marker.location.sketch_id === sketchId
+        && !(preview.value && marker.number === props.draftLocation?.number));
 }
 
 function position(location) {
@@ -104,17 +107,25 @@ async function placeFromKeyboard(event, sketch) {
     surface.querySelector('[data-draft-marker]')?.focus();
 }
 
-function refinePreview(event) {
+function refinePreview(event, from = preview.value) {
     const steps = {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]};
     if (!canPlace.value || !steps[event.key]) return;
     event.preventDefault();
     event.stopPropagation();
     const [dx, dy] = steps[event.key];
     const step = event.shiftKey ? 0.001 : 0.005;
-    const location = offsetLocation(preview.value, dx * step, dy * step);
+    const location = offsetLocation(from, dx * step, dy * step);
     if (location && placeOnAnatomy(location)) {
-        nextTick(() => revealMarker(panel.value?.querySelector('[data-draft-marker]')));
+        nextTick(() => {
+            const draftMarker = panel.value?.querySelector('[data-draft-marker]');
+            draftMarker?.focus();
+            revealMarker(draftMarker);
+        });
     }
+}
+
+function nudgeMarker(event, marker) {
+    if (marker.number === props.editingNumber) refinePreview(event, marker.location);
 }
 
 const view = defineModel('view', {type: String, default: 'body-front'});
@@ -405,8 +416,13 @@ watch(
         </p>
         <p v-if="density" class="he-placement-help">Observation density by location. Switch to Pins to place or select markers.</p>
         <p v-if="canPlace" class="he-placement-help">
-            Click inside an anatomical outline to place a marker. For keyboard placement, focus a sketch and press
-            Enter.
+            <template v-if="editingNumber != null">
+                Click inside an anatomical outline to move marker {{ editingNumber }}, or focus it and use the arrow keys.
+            </template>
+            <template v-else>
+                Click inside an anatomical outline to place a marker. For keyboard placement, focus a sketch and press
+                Enter.
+            </template>
         </p>
 
         <div
@@ -484,10 +500,11 @@ watch(
                                 :class="{ 'he-marker--selected': selectedNumber === marker.number }"
                                 :data-observation="marker.number"
                                 :style="{ ...position(marker.location), ...observationStyle(marker.type, markerColors) }"
-                                :aria-label="`Observation ${marker.number}, ${observationType(marker.type)}${marker.label ? `: ${marker.label}` : ''}`"
+                                :aria-label="`Observation ${marker.number}, ${observationType(marker.type)}${marker.label ? `: ${marker.label}` : ''}${marker.number === editingNumber && canPlace ? '. Arrow keys move it.' : ''}`"
                                 :aria-pressed="selectedNumber === marker.number"
                                 :disabled="disabled"
                                 @click.stop="emit('select', marker.number)"
+                                @keydown="nudgeMarker($event, marker)"
                             >
                                 <span aria-hidden="true">{{ marker.number }}</span>
                             </button>

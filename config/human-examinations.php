@@ -49,6 +49,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Reference Format
+    |--------------------------------------------------------------------------
+    |
+    | Generates every new examination's reference. Leave it null to let users
+    | type their own. Placeholders:
+    |
+    |   {id}         the examination's ID, e.g. 42
+    |   {id:4}       the ID padded with zeros to 4 digits, e.g. 0042
+    |   {year}       2026     {month}  11     {day}  19
+    |                (from the examination date, or the creation date if blank)
+    |   {random:6}   6 random uppercase letters and digits, e.g. K7Q2ZP
+    |
+    | Example: 'EX-{year}-{id:4}' gives EX-2026-0042. When set, references
+    | are always generated and cannot be typed or changed.
+    |
+    */
+
+    'reference_format' => null,
+
+    /*
+    |--------------------------------------------------------------------------
     | Actions
     |--------------------------------------------------------------------------
     |

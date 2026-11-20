@@ -5,6 +5,7 @@ import {downloadExaminationResponse} from '../../../../resources/js/examinationT
 
 const props = defineProps({
     observationTypes: {type: Array, default: () => []},
+    referenceLocked: {type: Boolean, default: false},
     examination: {type: Object, default: null},
     examinationRoutes: {type: Object, required: true},
     observations: {type: Array, default: () => []},
@@ -103,6 +104,7 @@ async function exportExamination(format, complete) {
             :key="props.examination?.id ?? 'none'"
             :examination="props.examination ?? undefined"
             :types="observationTypes"
+            :reference-locked="referenceLocked"
             :observations="props.observations"
             persistent-observations
             :transfer-limits="transferLimits"
