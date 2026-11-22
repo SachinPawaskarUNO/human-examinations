@@ -1438,6 +1438,7 @@ select.he-input {
 
 /* New examination dialog */
 .he-dialog {
+    margin: auto;
     width: min(24rem, calc(100vw - 2rem));
     padding: 0;
     border: 1px solid var(--he-border);

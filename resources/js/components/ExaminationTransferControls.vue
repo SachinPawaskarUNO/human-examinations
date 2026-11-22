@@ -162,7 +162,7 @@ summary::-webkit-details-marker { display: none; }
 .he-transfer-errors { font-size: .8125rem; }
 .he-transfer-errors { color: #b91c1c; }
 .he-transfer-errors p { margin: .35rem 0; }
-.he-import-dialog { width: min(30rem, calc(100vw - 2rem)); box-sizing: border-box; padding: 1.25rem; border: 1px solid var(--he-border, #e5e5e5); border-radius: .75rem; color: var(--he-foreground, #171717); background: var(--he-background, #fff); font: inherit; }
+.he-import-dialog { margin: auto; width: min(30rem, calc(100vw - 2rem)); box-sizing: border-box; padding: 1.25rem; border: 1px solid var(--he-border, #e5e5e5); border-radius: .75rem; color: var(--he-foreground, #171717); background: var(--he-background, #fff); font: inherit; }
 .he-import-dialog::backdrop { background: #0006; }
 .he-import-dialog h2 { font-size: 1.125rem; margin: 0 0 1rem; }
 .he-import-dialog p { line-height: 1.5; font-size: .875rem; }
