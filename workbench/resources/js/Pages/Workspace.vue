@@ -6,6 +6,7 @@ import {downloadExaminationResponse} from '../../../../resources/js/examinationT
 const props = defineProps({
     observationTypes: {type: Array, default: () => []},
     referenceLocked: {type: Boolean, default: false},
+    personNameEditable: {type: Boolean, default: false},
     examination: {type: Object, default: null},
     examinationRoutes: {type: Object, required: true},
     observations: {type: Array, default: () => []},
@@ -22,14 +23,14 @@ function createExamination(details) {
 }
 
 // Saves edits from the Examination tab. The server sends back the updated examination.
-function saveExamination({reference, examiner, date, notes}) {
+function saveExamination({reference, examiner, person_name, date, notes}) {
     if (!props.examination) {
         return;
     }
 
     router.patch(
         props.examinationRoutes.update,
-        {reference, examiner, date, notes},
+        {reference, examiner, person_name, date, notes},
         {preserveScroll: true, preserveState: true},
     );
 }
@@ -105,6 +106,7 @@ async function exportExamination(format, complete) {
             :examination="props.examination ?? undefined"
             :types="observationTypes"
             :reference-locked="referenceLocked"
+            :person-name-editable="personNameEditable"
             :observations="props.observations"
             persistent-observations
             :transfer-limits="transferLimits"

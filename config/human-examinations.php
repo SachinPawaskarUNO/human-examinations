@@ -35,6 +35,12 @@ return [
         'export' => true,
     ],
 
+    // Where each examination's person name comes from:
+    //   null      no names (default)
+    //   'typed'   users type them in the workspace, and they are saved
+    //   a class   implementing ResolvesPersonName, read from your app; shown read-only
+    'person_name' => null,
+
     // Initial view, display mode, and sketch height in pixels.
     'workspace' => [
         'default_view' => 'body', // body, head, hands, feet, or a sketch ID (e.g. head-front).

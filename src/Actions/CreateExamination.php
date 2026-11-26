@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HumanExaminations\HumanExaminations\Actions;
 
 use HumanExaminations\HumanExaminations\Models\Examination;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 class CreateExamination
@@ -13,10 +14,15 @@ class CreateExamination
      * Start a new examination. Every field is optional, so it can begin blank.
      * When the `reference_format` config is set, the reference is always generated from it.
      *
-     * @param  array{reference?: string|null, examiner?: string|null, date?: string|null, notes?: string|null}  $attributes
+     * @param  array{reference?: string|null, examiner?: string|null, person_name?: string|null, date?: string|null, notes?: string|null}  $attributes
      */
     public function handle(array $attributes = []): Examination
     {
+        // Person names are saved only when users type them.
+        if (config('human-examinations.person_name') !== 'typed') {
+            $attributes = Arr::except($attributes, 'person_name');
+        }
+
         return (new Examination)->getConnection()->transaction(function () use ($attributes): Examination {
             $examination = Examination::create($attributes);
 

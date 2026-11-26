@@ -15,7 +15,7 @@ class ImportExamination
         $data = ExaminationDocument::validate($document);
 
         return (new Examination)->getConnection()->transaction(function () use ($data): Examination {
-            /** @var array{reference?: string|null, examiner?: string|null, date?: string|null, notes?: string|null} $metadata */
+            /** @var array{reference?: string|null, examiner?: string|null, person_name?: string|null, date?: string|null, notes?: string|null} $metadata */
             $metadata = $data['examination'];
             $examination = app(CreateExamination::class)->handle($metadata);
             foreach ($data['observations'] as $observation) {

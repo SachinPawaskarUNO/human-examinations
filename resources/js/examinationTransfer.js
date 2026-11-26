@@ -24,9 +24,10 @@ function decimal(value, name, max, places) {
 export function parseExaminationDocument(value, {types = [], maxObservations = 10000} = {}) {
     keys(value, ['format', 'version', 'examination', 'observations'], 'The document');
     if (value.format !== examinationFormat || value.version !== examinationVersion) fail('This examination format or version is not supported.');
-    keys(value.examination, metadataFields, 'Examination details');
+    keys(value.examination, [...metadataFields, 'person_name'], 'Examination details');
     if (!Array.isArray(value.observations) || value.observations.length > maxObservations) fail(`The file must contain at most ${maxObservations} observations.`);
     const examination = Object.fromEntries(metadataFields.map(field => [field, text(value.examination[field], field, ['reference', 'examiner'].includes(field) ? 255 : Infinity)]));
+    if (value.examination.person_name !== undefined) examination.person_name = text(value.examination.person_name, 'person_name', 255);
     if (examination.date != null) {
         const date = new Date(examination.date + 'T00:00:00Z');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(examination.date) || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== examination.date) fail('The examination date must be a valid YYYY-MM-DD date.');
@@ -57,19 +58,25 @@ export function parseExaminationDocument(value, {types = [], maxObservations = 1
 export function createExaminationDocument(examination, observations) {
     return parseExaminationDocument({
         format: examinationFormat, version: examinationVersion,
-        examination: Object.fromEntries(metadataFields.map(field => [field, examination?.[field] ?? null])),
+        examination: {
+            ...Object.fromEntries(metadataFields.map(field => [field, examination?.[field] ?? null])),
+            // Exported when the examination has a person name field, i.e. person names are on.
+            ...(examination && 'person_name' in examination ? {person_name: examination.person_name ?? null} : {}),
+        },
         observations: observations.map(row => Object.fromEntries(observationFields.map(field => [field, field === 'number' ? Number(row[field]) : row[field] ?? null]))),
     }, {maxObservations: Infinity});
 }
 
 export function examinationCsv(document) {
-    const headers = ['examination_reference', 'examiner', 'date', 'examination_notes', ...observationFields];
+    // The document includes person_name only when person names are on.
+    const personName = 'person_name' in document.examination ? ['person_name'] : [];
+    const headers = ['examination_reference', 'examiner', ...personName, 'date', 'examination_notes', ...observationFields];
     const cell = value => {
         let result = String(value ?? '');
         if (/^[\x00-\x20]*[=+\-@]|^[\t\r\n]/.test(result)) result = "'" + result;
         return '"' + result.replaceAll('"', '""') + '"';
     };
-    const metadata = metadataFields.map(field => document.examination[field]);
+    const metadata = ['reference', 'examiner', ...personName, 'date', 'notes'].map(field => document.examination[field]);
     const rows = (document.observations.length ? document.observations : [{}]).map(row => [...metadata, ...observationFields.map(field => row[field])]);
     return '\uFEFF' + [headers, ...rows].map(row => row.map(cell).join(',')).join('\r\n') + '\r\n';
 }

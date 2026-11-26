@@ -8,6 +8,7 @@ import {getObservationLocation} from '../observationLocations.js';
 import {observationStyle} from '../observationTypes.js';
 import {bodyRegions, suggestRegion} from '../observationRegions.js';
 import {sketchGroups, sketches} from '../sketches.js';
+import {renderSketchPng} from '../sketchPng.js';
 import {createObservationHistory, observationFields, sameObservation} from '../observationHistory.js';
 
 const props = defineProps({
@@ -16,6 +17,8 @@ const props = defineProps({
     // The host handles persistence through save-observation/delete-observation events.
     persistentObservations: {type: Boolean, default: false},
     referenceLocked: {type: Boolean, default: false},
+    // True when the `person_name` config is 'typed', so users can enter names.
+    personNameEditable: {type: Boolean, default: false},
     transferLimits: {type: Object, default: () => ({maxFileBytes: 10485760, maxObservations: 10000})},
     features: {type: Object, default: () => ({})},
     markerColors: {type: Object, default: () => ({})},
@@ -56,6 +59,7 @@ function openNewExamination() {
         reference: null,
         examiner: null,
         date: new Date().toLocaleDateString('en-CA'),
+        ...(props.personNameEditable ? {person_name: null} : {}),
     };
     newExaminationDialog.value.showModal();
 }
@@ -108,6 +112,7 @@ function defaultMode() {
 const activeView = ref(defaultView());
 const mapMode = ref(defaultMode());
 const anatomicalViews = ref(null);
+const transferControls = ref(null);
 const observationForm = ref(null);
 const canEditObservations = computed(
     () => !props.persistentObservations || Boolean(examination.value.id),
@@ -241,7 +246,8 @@ async function importExamination(file, complete) {
     if (props.persistentObservations) { emit('import-examination', file, complete); return; }
     try {
         const document = parseExaminationDocument(JSON.parse((await file.text()).replace(/^\uFEFF/, '')), {types: props.types, maxObservations: props.transferLimits.maxObservations});
-        examination.value = {...document.examination};
+        const {person_name: personName, ...details} = document.examination;
+        examination.value = props.personNameEditable ? {...details, person_name: personName ?? null} : details;
         observations.value = document.observations.map(row => ({...row}));
         writeToken++; observationErrors.value = {}; draft.value = null; selectedNumber.value = null;
         resetHistory(); mapMode.value = defaultMode(); activeView.value = defaultView();
@@ -256,6 +262,16 @@ function exportExamination(format, complete) {
     try {
         const document = createExaminationDocument(examination.value, observations.value);
         downloadFile(format === 'csv' ? examinationCsv(document) : JSON.stringify(document, null, 2) + '\n', `human-examination.${format}`, format === 'csv' ? 'text/csv;charset=utf-8' : 'application/json');
+        complete();
+    } catch (error) { complete({_form: error.message}); }
+}
+
+async function exportSketchPng(sketch, complete) {
+    if (!exportEnabled.value) { complete({_form: 'Export is unavailable.'}); return; }
+    if (observationPending.value || draft.value) { complete({_form: 'Save or cancel the current observation first.'}); return; }
+    try {
+        const png = await renderSketchPng(sketch, observations.value, {examination: examination.value, markerColors: props.markerColors});
+        downloadFile(png, `human-examination-${sketch.id}.png`, 'image/png');
         complete();
     } catch (error) { complete({_form: error.message}); }
 }
@@ -467,16 +483,16 @@ function details(o) {
 <template>
     <div ref="workspaceRoot" class="he-workspace">
         <div class="he-toolbar">
-            <div v-if="examination.id || examination.reference || examination.examiner || examination.date" class="he-current">
+            <div v-if="examination.id || examination.reference || examination.person_name || examination.examiner || examination.date" class="he-current">
                 <strong>{{
                         examination.reference || (examination.id ? `Examination #${examination.id}` : 'Examination')
                     }}</strong>
                 <span
-                    v-if="examination.examiner || examination.date"
+                    v-if="examination.person_name || examination.examiner || examination.date"
                     class="he-muted he-small"
                 >
                     {{
-                        [examination.examiner, examination.date]
+                        [examination.person_name, examination.examiner, examination.date]
                             .filter(Boolean)
                             .join(' · ')
                     }}
@@ -486,6 +502,7 @@ function details(o) {
             <ObservationHistoryControls v-if="$slots.default && historyEnabled" :undo-disabled="!canUndo" :redo-disabled="!canRedo" :editing="Boolean(draft)" @undo="replayHistory('undo')" @redo="replayHistory('redo')"/>
             <div class="he-toolbar-actions">
                 <ExaminationTransferControls
+                    ref="transferControls"
                     :disabled="workspacePending || Boolean(draft)"
                     :import-enabled="importEnabled"
                     :export-enabled="exportEnabled"
@@ -496,6 +513,7 @@ function details(o) {
                     @busy="transferPending = $event"
                     @import="importExamination"
                     @export="exportExamination"
+                    @export-sketch="exportSketchPng"
                 />
                 <button
                     type="button"
@@ -546,6 +564,11 @@ function details(o) {
                     />
                 </label>
 
+                <label v-if="personNameEditable" class="he-field">
+                    <span>Person</span>
+                    <input v-model="newExamination.person_name" class="he-input" placeholder="Name, if known"/>
+                </label>
+
                 <label class="he-field">
                     <span>Date</span>
                     <input
@@ -586,8 +609,11 @@ function details(o) {
                         :editing-number="savedLocation ? draft.number : null"
                         :placement-enabled="placementEnabled"
                         :disabled="workspacePending"
+                        :export-enabled="exportEnabled"
+                        :export-disabled="Boolean(draft)"
                         @place="placeObservation"
                         @select="selectObservation"
+                        @export="transferControls?.exportSketch($event)"
                     >
                         <template v-if="historyEnabled" #actions>
                             <ObservationHistoryControls :undo-disabled="!canUndo" :redo-disabled="!canRedo" :editing="Boolean(draft)" @undo="replayHistory('undo')" @redo="replayHistory('redo')"/>
@@ -686,6 +712,20 @@ function details(o) {
                                     $event.target.value,
                                 )
                             "
+                        />
+                    </label>
+
+                    <label v-if="personNameEditable || examination.person_name" class="he-field">
+                        <span>Person</span>
+                        <input
+                            class="he-input"
+                            :class="{ 'he-input--locked': !personNameEditable }"
+                            :value="examination.person_name"
+                            :readonly="!personNameEditable"
+                            :title="personNameEditable ? null : 'Provided by the application'"
+                            :disabled="transferPending"
+                            placeholder="Name, if known"
+                            @change="updateExamination('person_name', $event.target.value)"
                         />
                     </label>
 

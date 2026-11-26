@@ -40,11 +40,11 @@ class ExaminationController
     /**
      * The examination fields from the request. All are optional.
      *
-     * @return array{reference?: string|null, examiner?: string|null, date?: string|null, notes?: string|null}
+     * @return array{reference?: string|null, examiner?: string|null, person_name?: string|null, date?: string|null, notes?: string|null}
      */
     private function validated(Request $request): array
     {
-        /** @var array{reference?: string|null, examiner?: string|null, date?: string|null, notes?: string|null} */
+        /** @var array{reference?: string|null, examiner?: string|null, person_name?: string|null, date?: string|null, notes?: string|null} */
         return $request->validate([
             ...RecordRules::examination(),
             // Preserve the HTTP API's existing acceptance of Laravel date input.

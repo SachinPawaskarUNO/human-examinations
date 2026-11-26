@@ -12,10 +12,15 @@ class UpdateExamination
     /**
      * Change an examination's details. Only the given fields are updated.
      *
-     * @param  array{reference?: string|null, examiner?: string|null, date?: string|null, notes?: string|null}  $attributes
+     * @param  array{reference?: string|null, examiner?: string|null, person_name?: string|null, date?: string|null, notes?: string|null}  $attributes
      */
     public function handle(Examination $examination, array $attributes): Examination
     {
+        // Person names are saved only when users type them.
+        if (config('human-examinations.person_name') !== 'typed') {
+            $attributes = Arr::except($attributes, 'person_name');
+        }
+
         // With a reference format, references are generated and cannot be changed.
         if (filled(config('human-examinations.reference_format'))) {
             $attributes = Arr::except($attributes, 'reference');

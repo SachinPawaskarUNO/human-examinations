@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property string|null $reference
  * @property string|null $examiner
+ * @property string|null $person_name
  * @property Carbon|null $date
  * @property string|null $notes
  * @property Carbon|null $created_at
@@ -27,7 +28,7 @@ class Examination extends Model
 
     protected $table = 'human_examinations';
 
-    protected $fillable = ['reference', 'examiner', 'date', 'notes'];
+    protected $fillable = ['reference', 'examiner', 'person_name', 'date', 'notes'];
 
     /** @return HasMany<Observation, $this> */
     public function observations(): HasMany

@@ -11,6 +11,7 @@ use HumanExaminations\HumanExaminations\Actions\RestoreObservation;
 use HumanExaminations\HumanExaminations\Actions\UpdateExamination;
 use HumanExaminations\HumanExaminations\Actions\UpdateObservation;
 use HumanExaminations\HumanExaminations\Enums\ObservationType;
+use Workbench\App\Support\DemoPersonName;
 
 return [
 
@@ -26,6 +27,13 @@ return [
     */
 
     'observation_type' => ObservationType::class,
+
+    // Where each examination's person name comes from:
+    //   null      no names (default)
+    //   'typed'   users type them in the workspace, and they are saved
+    //   a class   implementing ResolvesPersonName, read from your app; shown read-only
+    // The demo reads names through its Person relationship. Try 'typed' to enter them instead.
+    'person_name' => DemoPersonName::class,
 
     /*
     |--------------------------------------------------------------------------

@@ -36,7 +36,11 @@ class ConfiguredWorkbenchTest extends TestCase
 
         $this->withoutVite();
         $this->artisan('migrate', [
-            '--path' => realpath(__DIR__.'/../../database/migrations'),
+            '--path' => [
+                realpath(__DIR__.'/../../database/migrations'),
+                // The demo's own tables, such as `people`.
+                realpath(__DIR__.'/../../workbench/database/migrations'),
+            ],
             '--realpath' => true,
         ])->assertSuccessful();
     }

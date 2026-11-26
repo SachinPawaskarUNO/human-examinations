@@ -18,8 +18,10 @@ const props = defineProps({
     densityEnabled: {type: Boolean, default: true},
     markerColors: {type: Object, default: () => ({})},
     initialDiagramHeight: {type: Number, default: 560},
+    exportEnabled: {type: Boolean, default: false},
+    exportDisabled: {type: Boolean, default: false},
 });
-const emit = defineEmits(['place', 'select']);
+const emit = defineEmits(['place', 'select', 'export']);
 const mode = defineModel('mode', {type: String, default: 'pins'});
 const density = computed(() => props.densityEnabled && mode.value === 'density');
 const canPlace = computed(() => props.placementEnabled && !props.disabled && !density.value);
@@ -61,6 +63,15 @@ function markersFor(sketchId) {
     // A moved marker is drawn only at its new, unsaved location.
     return markers.value.filter((marker) => marker.location.sketch_id === sketchId
         && !(preview.value && marker.number === props.draftLocation?.number));
+}
+
+function hasSavedMarkers(sketchId) {
+    return markers.value.some((marker) => marker.location.sketch_id === sketchId);
+}
+
+function exportTitle(sketch) {
+    if (!hasSavedMarkers(sketch.id)) return 'Place a marker on this sketch first';
+    return props.exportDisabled ? 'Save or cancel the current observation first' : 'Export as PNG';
 }
 
 function position(location) {
@@ -533,6 +544,16 @@ watch(
                         </button>
                         <button type="button" aria-label="Reset view" title="Reset this view" :disabled="disabled" @click="resetView(sketch)">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10a9 9 0 1 1 2.6 8.4M3 4v6h6"/></svg>
+                        </button>
+                        <button
+                            v-if="exportEnabled && !density"
+                            type="button"
+                            :aria-label="`Export ${sketch.label} as PNG`"
+                            :title="exportTitle(sketch)"
+                            :disabled="disabled || exportDisabled || !hasSavedMarkers(sketch.id)"
+                            @click="emit('export', sketch)"
+                        >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m-4.5-4.5L12 15l4.5-4.5M5 19.5h14"/></svg>
                         </button>
                     </div>
                     <div

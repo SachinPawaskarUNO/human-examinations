@@ -62,9 +62,12 @@ class ExaminationTransferController
             throw new RuntimeException('Unable to open the export stream.');
         }
         fwrite($stream, "\xEF\xBB\xBF");
-        fputcsv($stream, ['examination_reference', 'examiner', 'date', 'examination_notes', ...ExaminationDocument::OBSERVATION_FIELDS], escape: '');
+        // The export includes person_name only when the `person_name` config is set.
+        $personName = array_key_exists('person_name', $document['examination']) ? ['person_name'] : [];
+        $examinationFields = ['reference', 'examiner', ...$personName, 'date', 'notes'];
+        fputcsv($stream, ['examination_reference', 'examiner', ...$personName, 'date', 'examination_notes', ...ExaminationDocument::OBSERVATION_FIELDS], escape: '');
         foreach ($document['observations'] ?: [[]] as $observation) {
-            $values = [...array_map(fn (string $field): mixed => $document['examination'][$field] ?? null, ExaminationDocument::EXAMINATION_FIELDS), ...array_map(fn (string $field): mixed => $observation[$field] ?? null, ExaminationDocument::OBSERVATION_FIELDS)];
+            $values = [...array_map(fn (string $field): mixed => $document['examination'][$field] ?? null, $examinationFields), ...array_map(fn (string $field): mixed => $observation[$field] ?? null, ExaminationDocument::OBSERVATION_FIELDS)];
             fputcsv($stream, array_map(function (mixed $value): string {
                 $text = (string) ($value ?? '');
 

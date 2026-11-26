@@ -39,6 +39,7 @@ class RecordRules
         return [
             'reference' => ['nullable', 'string', 'max:255'],
             'examiner' => ['nullable', 'string', 'max:255'],
+            'person_name' => ['nullable', 'string', 'max:255'],
             'date' => ['nullable', 'date_format:Y-m-d'],
             'notes' => ['nullable', 'string'],
         ];

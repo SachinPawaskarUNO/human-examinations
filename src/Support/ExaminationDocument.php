@@ -72,7 +72,7 @@ class ExaminationDocument
                     $fail('The examination document version is not supported.');
                 }
             }],
-            'document.examination' => ['present', 'array:'.implode(',', self::EXAMINATION_FIELDS)],
+            'document.examination' => ['present', 'array:'.implode(',', [...self::EXAMINATION_FIELDS, 'person_name'])],
             'document.observations' => ['present', 'array', 'list', 'max:'.(int) config('human-examinations.transfer.max_observations', 10000)],
             'document.observations.*' => ['required', 'array:'.implode(',', self::OBSERVATION_FIELDS)],
             'document.observations.*.number' => ['required', 'integer', 'min:1', 'max:4294967295', 'distinct', function (string $attribute, mixed $value, Closure $fail): void {

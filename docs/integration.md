@@ -203,6 +203,44 @@ In a repository checkout, the complete workbench examples are [the page componen
 
 The workspace emits `new-examination(details)` and updates its `examination` model when examination details change. The host owns creation and metadata persistence; these events do not use the observation `complete()` callback contract.
 
+## Person Names
+
+Examinations can show a person's name in the workspace header, the Examination
+tab, PNG exports, and JSON and CSV exports. Set where names come from with
+`person_name` in `config/human-examinations.php`:
+
+| Value | Names |
+| --- | --- |
+| `null` (default) | None |
+| `'typed'` | Users type them in the New Examination dialog and Examination tab. They are saved with the examination. |
+| A class | Read from your app, for example through your own relationship. Shown read-only and not saved. |
+
+For `'typed'`, pass `:person-name-editable="true"` to the workspace, for example
+`'personNameEditable' => config('human-examinations.person_name') === 'typed'`
+from your page. For a class, implement `ResolvesPersonName`:
+
+```php
+use HumanExaminations\HumanExaminations\Contracts\ResolvesPersonName;
+use HumanExaminations\HumanExaminations\Models\Examination;
+
+class PatientName implements ResolvesPersonName
+{
+    public function personName(Examination $examination): ?string
+    {
+        return $examination->patient?->name;
+    }
+}
+```
+
+```php
+'person_name' => App\Support\PatientName::class,
+```
+
+`RecordData::examination()` and the package's exports then include the name.
+Unless `person_name` is `'typed'`, the package does not save names from
+requests or imports. Exports require `view` permission on the examination, so
+make sure that permission also covers seeing the person's name.
+
 ## Examination References
 
 References are typed by users by default. To generate them automatically

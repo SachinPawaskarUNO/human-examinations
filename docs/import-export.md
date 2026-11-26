@@ -6,11 +6,20 @@
 
 Use **Export → Export JSON** for a portable examination, or **Export CSV** for a spreadsheet. **Import JSON** opens a file chooser and a confirmation showing the examination reference and observation count. Save or cancel an open observation form before transferring files.
 
+## PNG Sketches
+
+Each sketch with saved markers has an **Export as PNG** button beside its zoom
+controls. It downloads that sketch as a US Letter page at 300 DPI, with its
+numbered markers, the examination details, a legend of the types shown, and the
+artwork credit. PNGs are created in the browser, so they need no package route;
+the button follows the same rules as JSON and CSV export. It is hidden in
+Density mode and disabled while an observation form is open.
+
 In the workbench, confirming an import creates a **new examination** and opens its workspace. Existing examinations remain unchanged. In the reusable workspace's default local mode, confirmation replaces its in-memory examination and observations instead; export first to keep a copy. A successful local import clears observation undo/redo history. Invalid files and failed requests leave the current examination intact and show errors. Failed imports can be retried from the confirmation.
 
 ## What is Included
 
-JSON preserves examination reference, examiner, date, notes, and active observations: numbers (including gaps), types, labels, region text, descriptions, measurements, sketch identifiers, and normalized coordinates. Measurements use millimetres with two decimal places; coordinates use six decimal places. Manual region text is preserved without recalculating suggestions.
+JSON preserves examination reference, examiner, date, notes, and active observations: numbers (including gaps), types, labels, region text, descriptions, measurements, sketch identifiers, and normalized coordinates. Measurements use millimetres with two decimal places; coordinates use six decimal places. Manual region text is preserved without recalculating suggestions. When the `person_name` config is set, JSON and CSV also include `person_name`; see [person names](integration.md#person-names).
 
 Database IDs, host associations, timestamps, deleted observations, undo history, zoom/pan settings, and uploaded media are excluded. Imports receive new database IDs. This is a data transfer format, rather than a database backup. Unknown custom sketch identifiers are preserved, but the receiving UI needs the matching artwork to display those markers.
 

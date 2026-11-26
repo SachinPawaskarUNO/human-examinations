@@ -36,7 +36,7 @@ Without `types`, the Type field is free text.
 
 ## Import and Export
 
-The toolbar offers **Import JSON** and an **Export** menu with JSON and CSV options. JSON includes examination details and active observations, including marker locations. Import previews the reference and observation count before confirmation. Local imports replace in-memory workspace data; persistent imports create a new saved examination. Save or cancel an observation draft before transferring files. See [import and export](import-export.md) for the format, host callbacks, and validation behavior.
+The toolbar offers **Import JSON** and an **Export** menu with JSON and CSV options. JSON includes examination details and active observations, including marker locations. Import previews the reference and observation count before confirmation. Local imports replace in-memory workspace data; persistent imports create a new saved examination. Save or cancel an observation draft before transferring files. Each sketch can also be exported as a PNG. See [import and export](import-export.md) for the format, host callbacks, and validation behavior.
 
 ## Region Suggestions
 

@@ -8,7 +8,7 @@ const props = defineProps({
     maxFileBytes: {type: Number, default: 10485760},
     maxObservations: {type: Number, default: 10000},
 });
-const emit = defineEmits(['import', 'export', 'busy']);
+const emit = defineEmits(['import', 'export', 'export-sketch', 'busy']);
 const input = ref(null), dialog = ref(null), menu = ref(null);
 const file = ref(null), preview = ref(null), reading = ref(false), pending = ref(false);
 const errors = ref([]), notice = ref('');
@@ -66,6 +66,11 @@ function exportFile(format) {
     menu.value?.removeAttribute('open');
     perform('export', format, `${format.toUpperCase()} export downloaded.`);
 }
+// The PNG buttons are on the sketches, but share these controls' progress and error messages.
+function exportSketch(sketch) {
+    perform('export-sketch', sketch, 'PNG export downloaded.');
+}
+defineExpose({exportSketch});
 </script>
 
 <template>

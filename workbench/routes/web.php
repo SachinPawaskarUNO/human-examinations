@@ -33,6 +33,7 @@ Route::get('/', fn () => Inertia::render('Workspace', [
     ...$workspaceOptions(),
     'observationTypes' => $observationTypes(),
     'referenceLocked' => filled(config('human-examinations.reference_format')),
+    'personNameEditable' => config('human-examinations.person_name') === 'typed',
     'examination' => null,
     'examinationRoutes' => $examinationRoutes(),
     'transferLimits' => $transferLimits(),
@@ -50,7 +51,11 @@ Route::get('/examinations/{examination}', function (Examination $examination) us
         ...$workspaceOptions(),
         'observationTypes' => $observationTypes(),
         'referenceLocked' => filled(config('human-examinations.reference_format')),
-        'examination' => ['id' => $examination->id, ...RecordData::examination($examination)],
+        'personNameEditable' => config('human-examinations.person_name') === 'typed',
+        'examination' => [
+            'id' => $examination->id,
+            ...RecordData::examination($examination),
+        ],
         'examinationRoutes' => $examinationRoutes($examination),
         'transferLimits' => $transferLimits(),
         'observations' => $observations->map(fn (Observation $observation): array => [

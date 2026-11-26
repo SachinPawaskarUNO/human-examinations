@@ -14,6 +14,7 @@ return new class extends Migration
             $table->id();
             $table->string('reference')->nullable()->index();
             $table->string('examiner')->nullable();
+            $table->string('person_name')->nullable();
             $table->date('date')->nullable()->index();
             $table->text('notes')->nullable();
             $table->timestamps();

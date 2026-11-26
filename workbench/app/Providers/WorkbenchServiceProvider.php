@@ -5,11 +5,13 @@ namespace Workbench\App\Providers;
 use HumanExaminations\HumanExaminations\HumanExaminationsServiceProvider;
 use HumanExaminations\HumanExaminations\Models\Examination;
 use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Middleware as InertiaMiddleware;
 use Inertia\ServiceProvider as InertiaServiceProvider;
+use Workbench\App\Models\Person;
 use Workbench\App\Policies\ExaminationPolicy;
 
 class WorkbenchServiceProvider extends ServiceProvider
@@ -29,6 +31,9 @@ class WorkbenchServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(Examination::class, ExaminationPolicy::class);
+
+        // Lets the demo read `$examination->person`, as a host app would link its own record.
+        Examination::resolveRelationUsing('person', fn (Examination $examination): HasOne => $examination->hasOne(Person::class, 'human_examination_id'));
         $this->app->make(Kernel::class)->appendMiddlewareToGroup('web', InertiaMiddleware::class);
 
         // `npm run dev` writes the Vite dev server URL here (see vite.config.js).
