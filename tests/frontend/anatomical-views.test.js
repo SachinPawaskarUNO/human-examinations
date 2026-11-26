@@ -208,7 +208,8 @@ test('hosts can disable workspace features independently and override observatio
     });
     assert.doesNotMatch(html, /Import JSON|aria-label="Undo"|aria-label="Redo"|aria-label="Density"/);
     assert.match(html, /Export JSON/);
-    assert.equal([...html.matchAll(/--he-observation-color:#123456;--he-observation-foreground:#abcdef/g)].length, 3);
+    // The marker, key, side list, and observation table all use the override.
+    assert.equal([...html.matchAll(/--he-observation-color:#123456;--he-observation-foreground:#abcdef/g)].length, 4);
 
     const exportDisabled = await render(Workspace, {features: {export: false}});
     assert.match(exportDisabled, /Import JSON/);

@@ -154,6 +154,11 @@ or without locations and the current marker preview. Custom type names get
 stable generated colors; missing types use `Unspecified`. Numbers and accessible
 type labels remain available alongside color.
 
+Below the legend, an observations table lists each saved observation's number,
+type, label, region, length, width, sketch, and description. It shows 10 rows per page; selecting an
+observation, for example by clicking its marker, opens the page that contains
+it. Click a row to select that observation.
+
 With a saved examination, click or tap inside an anatomical outline to start an
 observation at that location. The bundled Vue component checks the SVG's filled
 anatomy, so surrounding space, gaps between limbs, and spaces between fingers
@@ -185,7 +190,9 @@ places, so markers remain aligned when the diagrams resize or stack.
 Standalone `AnatomicalViews.vue` accepts `observations`, `selectedNumber`,
 `draftLocation`, `editingNumber`, `placementEnabled` (default false), and
 `disabled` props. It emits `place(location)` with `{ sketch_id, x, y }` and
-`select(number)`; the host owns the form, selection, and persistence.
+`select(number)`; the host owns the form, selection, and persistence. Its
+optional `after-legend` slot places content between the legend and the
+anatomical-sides note, where the workspace shows its observations table.
 `draftLocation` may include a `number` for an existing observation and `type` to
 color the preview and include its type in the legend. Persisted markers remain
 selectable when placement is disabled, unless `disabled` is true. Incomplete or

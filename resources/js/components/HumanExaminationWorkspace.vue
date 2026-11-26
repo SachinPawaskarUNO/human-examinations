@@ -468,6 +468,28 @@ function removeObservation(number) {
     }
 }
 
+function sketchLabel(o) {
+    const location = getObservationLocation(o);
+    return location ? sketches.find((sketch) => sketch.id === location.sketch_id)?.label ?? location.sketch_id : null;
+}
+
+// The observation table shows 10 rows per page.
+const tablePageSize = 10;
+const tablePage = ref(0);
+const tablePages = computed(() => Math.max(1, Math.ceil(observations.value.length / tablePageSize)));
+const tableRows = computed(() => observations.value.slice(tablePage.value * tablePageSize, (tablePage.value + 1) * tablePageSize));
+
+// Stay on a page that exists when observations are removed.
+watch(tablePages, (pages) => {
+    if (tablePage.value >= pages) tablePage.value = pages - 1;
+});
+
+// Show the page with the selected observation, e.g. after clicking its pin.
+watch(selectedNumber, (number) => {
+    const index = observations.value.findIndex((o) => o.number === number);
+    if (index >= 0) tablePage.value = Math.floor(index / tablePageSize);
+});
+
 function details(o) {
     const size =
         o.length_mm || o.width_mm
@@ -516,6 +538,7 @@ function details(o) {
                     @export-sketch="exportSketchPng"
                 />
                 <button
+                    v-if="features.new_examination !== false"
                     type="button"
                     class="he-button he-button--primary"
                     :disabled="workspacePending"
@@ -617,6 +640,55 @@ function details(o) {
                     >
                         <template v-if="historyEnabled" #actions>
                             <ObservationHistoryControls :undo-disabled="!canUndo" :redo-disabled="!canRedo" :editing="Boolean(draft)" @undo="replayHistory('undo')" @redo="replayHistory('redo')"/>
+                        </template>
+                        <template v-if="observations.length" #after-legend>
+                            <div class="he-table-wrap">
+                                <table class="he-table" aria-label="Observations">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">#</th>
+                                            <th scope="col">Type</th>
+                                            <th scope="col">Label</th>
+                                            <th scope="col">Region</th>
+                                            <th scope="col">Length (mm)</th>
+                                            <th scope="col">Width (mm)</th>
+                                            <th scope="col">Sketch</th>
+                                            <th scope="col">Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr
+                                            v-for="o in tableRows"
+                                            :key="o.number"
+                                            :class="{ 'he-table__row--selected': selectedNumber === o.number }"
+                                            @click="selectObservation(o.number)"
+                                        >
+                                            <td>
+                                                <button
+                                                    type="button"
+                                                    class="he-badge he-table__select"
+                                                    :style="observationStyle(o.type, markerColors)"
+                                                    :aria-label="`Select observation ${o.number}`"
+                                                    :disabled="workspacePending"
+                                                    @click.stop="selectObservation(o.number)"
+                                                >{{ o.number }}</button>
+                                            </td>
+                                            <td>{{ o.type }}</td>
+                                            <td>{{ o.label }}</td>
+                                            <td>{{ o.region }}</td>
+                                            <td class="he-table__number">{{ o.length_mm }}</td>
+                                            <td class="he-table__number">{{ o.width_mm }}</td>
+                                            <td>{{ sketchLabel(o) ?? 'Not placed' }}</td>
+                                            <td class="he-table__description">{{ o.description }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div v-if="tablePages > 1" class="he-table-pager">
+                                <button type="button" class="he-button he-button--outline" :disabled="tablePage === 0" @click="tablePage--">Previous</button>
+                                <span aria-live="polite">Page {{ tablePage + 1 }} of {{ tablePages }}</span>
+                                <button type="button" class="he-button he-button--outline" :disabled="tablePage === tablePages - 1" @click="tablePage++">Next</button>
+                            </div>
                         </template>
                     </AnatomicalViews>
                 </slot>
@@ -1475,6 +1547,18 @@ select.he-input {
     padding: 0.5rem 0.75rem;
     resize: vertical;
 }
+
+/* Observation table */
+.he-table-wrap { margin-top: 1rem; overflow-x: auto; }
+.he-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+.he-table th, .he-table td { padding: 0.5rem 0.625rem; border-bottom: 1px solid var(--he-border); text-align: left; vertical-align: top; }
+.he-table thead th { color: var(--he-muted-foreground); font-weight: 500; white-space: nowrap; }
+.he-table tbody tr { cursor: pointer; }
+.he-table tbody tr:hover, .he-table__row--selected { background: var(--he-muted); }
+.he-table__select { border: 0; cursor: pointer; }
+.he-table__number { text-align: right; font-variant-numeric: tabular-nums; }
+.he-table__description { min-width: 12rem; }
+.he-table-pager { display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; margin-top: 0.75rem; font-size: 0.8125rem; }
 
 /* New examination dialog */
 .he-dialog {

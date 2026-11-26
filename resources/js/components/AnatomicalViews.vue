@@ -590,6 +590,9 @@ watch(
             <p v-else>Your observations will appear here.</p>
         </div>
 
+        <!-- The workspace's observation table -->
+        <slot name="after-legend"/>
+
         <p class="he-anatomy-note">Anatomical left and right refer to the subject.</p>
         <Teleport to="body">
             <div

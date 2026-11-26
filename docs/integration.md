@@ -125,6 +125,7 @@ Add or edit these entries in your published `config/human-examinations.php`:
     'density' => true,
     'import' => false,
     'export' => true,
+    'new_examination' => true,
 ],
 'marker_colors' => [
     'Scar' => ['fill' => '#315a81', 'text' => '#ffffff'],
@@ -132,7 +133,7 @@ Add or edit these entries in your published `config/human-examinations.php`:
 ],
 ```
 
-Every feature defaults to enabled. Turning off `undo_redo` disables observation history and its keyboard shortcuts. Turning off `density` leaves the map in Pins mode. Import and export are independent. A disabled transfer feature omits its package HTTP route, and direct PHP action calls remain available to host code. Rebuild the config and route caches if your app uses them.
+Every feature defaults to enabled. Turning off `undo_redo` disables observation history and its keyboard shortcuts. Turning off `density` leaves the map in Pins mode. Import and export are independent. Turn off `new_examination` to hide the New Examination button when your app creates examinations itself, for example as one step of a larger workflow, so each record has only one; consider turning off `import` too, since a persistent import also creates a new examination. A disabled transfer feature omits its package HTTP route, and direct PHP action calls remain available to host code. Rebuild the config and route caches if your app uses them.
 
 Key colors by the exact observation enum value, including values from custom enums. Use three- or six-digit hex colors for `fill` and `text`. Missing or invalid entries fall back to the built-in colors or the generated colors for custom types. Set both colors when needed for readable contrast.
 

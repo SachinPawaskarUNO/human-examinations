@@ -33,6 +33,7 @@ return [
         'density' => true,
         'import' => true,
         'export' => true,
+        'new_examination' => true,
     ],
 
     // Where each examination's person name comes from:
