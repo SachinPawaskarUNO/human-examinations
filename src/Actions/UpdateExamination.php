@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HumanExaminations\HumanExaminations\Actions;
 
-use HumanExaminations\HumanExaminations\Models\Examination;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 use Illuminate\Support\Arr;
 
 class UpdateExamination
@@ -14,7 +14,7 @@ class UpdateExamination
      *
      * @param  array{reference?: string|null, examiner?: string|null, person_name?: string|null, date?: string|null, notes?: string|null}  $attributes
      */
-    public function handle(Examination $examination, array $attributes): Examination
+    public function handle(HumanExamination $examination, array $attributes): HumanExamination
     {
         // Person names are saved only when users type them.
         if (config('human-examinations.person_name') !== 'typed') {

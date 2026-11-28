@@ -6,7 +6,7 @@ namespace HumanExaminations\HumanExaminations\Http\Controllers;
 
 use HumanExaminations\HumanExaminations\Actions\ExportExamination;
 use HumanExaminations\HumanExaminations\Actions\ImportExamination;
-use HumanExaminations\HumanExaminations\Models\Examination;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 use HumanExaminations\HumanExaminations\Support\ExaminationDocument;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ExaminationTransferController
 {
-    public function export(Request $request, Examination $examination, ExportExamination $exportExamination): StreamedResponse
+    public function export(Request $request, HumanExamination $examination, ExportExamination $exportExamination): StreamedResponse
     {
         Gate::authorize('view', $examination);
         $request->validate(['format' => ['sometimes', 'required', 'string', Rule::in(['json', 'csv'])]]);
@@ -37,7 +37,7 @@ class ExaminationTransferController
 
     public function import(Request $request, ImportExamination $importExamination): RedirectResponse
     {
-        Gate::authorize('create', Examination::class);
+        Gate::authorize('create', HumanExamination::class);
         $request->validate(['file' => ['required', 'file', 'max:'.(int) config('human-examinations.transfer.max_file_kilobytes', 10240)]]);
         /** @var UploadedFile $file */
         $file = $request->file('file');

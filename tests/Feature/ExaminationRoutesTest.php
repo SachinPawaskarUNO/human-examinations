@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HumanExaminations\HumanExaminations\Tests\Feature;
 
-use HumanExaminations\HumanExaminations\Models\Examination;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 use HumanExaminations\HumanExaminations\Tests\TestCase;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Gate;
@@ -66,7 +66,7 @@ class ExaminationRoutesTest extends TestCase
             ->assertUnauthorized();
         $this->assertDatabaseCount('human_examinations', 0);
 
-        $examination = Examination::create(['reference' => 'BEFORE']);
+        $examination = HumanExamination::create(['reference' => 'BEFORE']);
         $this->patchJson('/human-examinations/examinations/'.$examination->id, ['reference' => 'AFTER'])
             ->assertUnauthorized();
         $this->assertSame('BEFORE', $examination->fresh()->reference);
@@ -79,7 +79,7 @@ class ExaminationRoutesTest extends TestCase
         $this->postJson('/human-examinations/examinations')->assertForbidden();
         $this->assertDatabaseCount('human_examinations', 0);
 
-        $examination = Examination::create(['reference' => 'BEFORE']);
+        $examination = HumanExamination::create(['reference' => 'BEFORE']);
         $this->patchJson('/human-examinations/examinations/'.$examination->id, ['reference' => 'AFTER'])
             ->assertForbidden();
         $this->assertSame('BEFORE', $examination->fresh()->reference);
@@ -88,14 +88,14 @@ class ExaminationRoutesTest extends TestCase
     #[DefineEnvironment('enableRoutes')]
     public function test_host_policy_denials_happen_before_validation_or_writes(): void
     {
-        Gate::policy(Examination::class, ExaminationRoutePolicy::class);
+        Gate::policy(HumanExamination::class, ExaminationRoutePolicy::class);
         $this->signIn(2);
 
         $this->postJson('/human-examinations/examinations', ['reference' => ['invalid']])
             ->assertForbidden();
         $this->assertDatabaseCount('human_examinations', 0);
 
-        $examination = Examination::create(['reference' => 'BEFORE']);
+        $examination = HumanExamination::create(['reference' => 'BEFORE']);
         $this->patchJson('/human-examinations/examinations/'.$examination->id, ['reference' => ['invalid']])
             ->assertForbidden();
         $this->assertSame('BEFORE', $examination->fresh()->reference);
@@ -104,7 +104,7 @@ class ExaminationRoutesTest extends TestCase
     #[DefineEnvironment('enableRoutes')]
     public function test_an_authorized_user_can_create_an_examination_and_return_to_the_host_page(): void
     {
-        Gate::policy(Examination::class, ExaminationRoutePolicy::class);
+        Gate::policy(HumanExamination::class, ExaminationRoutePolicy::class);
         $this->signIn();
 
         $this->from('/host')->post('/human-examinations/examinations', [
@@ -125,10 +125,10 @@ class ExaminationRoutesTest extends TestCase
     #[DefineEnvironment('enableRoutes')]
     public function test_updates_respect_the_host_policy_for_each_examination(): void
     {
-        Gate::policy(Examination::class, ExaminationRoutePolicy::class);
+        Gate::policy(HumanExamination::class, ExaminationRoutePolicy::class);
         $this->signIn();
-        $allowed = Examination::create(['reference' => 'ALLOWED']);
-        $denied = Examination::create(['reference' => 'DENIED']);
+        $allowed = HumanExamination::create(['reference' => 'ALLOWED']);
+        $denied = HumanExamination::create(['reference' => 'DENIED']);
 
         $this->from('/host')->patch('/human-examinations/examinations/'.$allowed->id, ['notes' => 'Updated'])
             ->assertRedirect('/host');
@@ -143,7 +143,7 @@ class ExaminationRoutesTest extends TestCase
     #[DefineEnvironment('customRoutes')]
     public function test_url_and_name_prefixes_can_be_configured(): void
     {
-        Gate::policy(Examination::class, ExaminationRoutePolicy::class);
+        Gate::policy(HumanExamination::class, ExaminationRoutePolicy::class);
         $this->signIn();
 
         $this->assertFalse(Route::has('human-examinations.examinations.store'));
@@ -161,7 +161,7 @@ class ExaminationRoutesTest extends TestCase
     #[DefineEnvironment('emptyPrefixes')]
     public function test_empty_url_and_name_prefixes_are_supported(): void
     {
-        Gate::policy(Examination::class, ExaminationRoutePolicy::class);
+        Gate::policy(HumanExamination::class, ExaminationRoutePolicy::class);
         $this->signIn();
 
         $this->assertSame('/examinations', route('examinations.store', [], false));
@@ -172,14 +172,14 @@ class ExaminationRoutesTest extends TestCase
     #[DefineEnvironment('customMiddleware')]
     public function test_configured_middleware_applies_to_both_write_routes(): void
     {
-        Gate::policy(Examination::class, ExaminationRoutePolicy::class);
+        Gate::policy(HumanExamination::class, ExaminationRoutePolicy::class);
         Gate::define('enter-examinations', fn (User $user): bool => false);
         $this->signIn();
 
         $this->postJson('/human-examinations/examinations')->assertForbidden();
         $this->assertDatabaseCount('human_examinations', 0);
 
-        $examination = Examination::create(['reference' => 'BEFORE']);
+        $examination = HumanExamination::create(['reference' => 'BEFORE']);
         $this->patchJson('/human-examinations/examinations/'.$examination->id, ['reference' => 'AFTER'])
             ->assertForbidden();
         $this->assertSame('BEFORE', $examination->fresh()->reference);
@@ -188,12 +188,12 @@ class ExaminationRoutesTest extends TestCase
     #[DefineEnvironment('webMiddlewareOnly')]
     public function test_removing_auth_middleware_does_not_bypass_authorization(): void
     {
-        Gate::policy(Examination::class, ExaminationRoutePolicy::class);
+        Gate::policy(HumanExamination::class, ExaminationRoutePolicy::class);
 
         $this->postJson('/human-examinations/examinations')->assertForbidden();
         $this->assertDatabaseCount('human_examinations', 0);
 
-        $examination = Examination::create(['reference' => 'BEFORE']);
+        $examination = HumanExamination::create(['reference' => 'BEFORE']);
         $this->patchJson('/human-examinations/examinations/'.$examination->id, ['reference' => 'AFTER'])
             ->assertForbidden();
         $this->assertSame('BEFORE', $examination->fresh()->reference);
@@ -202,7 +202,7 @@ class ExaminationRoutesTest extends TestCase
     #[DefineEnvironment('enableRoutes')]
     public function test_an_authorized_create_uses_the_configured_workspace_redirect(): void
     {
-        Gate::policy(Examination::class, ExaminationRoutePolicy::class);
+        Gate::policy(HumanExamination::class, ExaminationRoutePolicy::class);
         $this->signIn();
         config()->set('human-examinations.workspace_route', 'host.examinations.show');
 
@@ -214,10 +214,10 @@ class ExaminationRoutesTest extends TestCase
     #[DefineEnvironment('noMiddleware')]
     public function test_empty_middleware_keeps_model_binding_and_per_record_authorization(): void
     {
-        Gate::policy(Examination::class, ExaminationRoutePolicy::class);
+        Gate::policy(HumanExamination::class, ExaminationRoutePolicy::class);
         $this->signIn();
-        $allowed = Examination::create(['reference' => 'ALLOWED']);
-        $denied = Examination::create(['reference' => 'DENIED']);
+        $allowed = HumanExamination::create(['reference' => 'ALLOWED']);
+        $denied = HumanExamination::create(['reference' => 'DENIED']);
 
         $this->from('/host')->patch('/human-examinations/examinations/'.$allowed->id, ['notes' => 'Updated'])
             ->assertRedirect('/host');
@@ -231,14 +231,14 @@ class ExaminationRoutesTest extends TestCase
     #[DefineEnvironment('enableRoutes')]
     public function test_authorized_requests_still_validate_their_payloads(): void
     {
-        Gate::policy(Examination::class, ExaminationRoutePolicy::class);
+        Gate::policy(HumanExamination::class, ExaminationRoutePolicy::class);
         $this->signIn();
 
         $this->postJson('/human-examinations/examinations', ['reference' => ['invalid']])
             ->assertUnprocessable()->assertJsonValidationErrors('reference');
         $this->assertDatabaseCount('human_examinations', 0);
 
-        $examination = Examination::create(['reference' => 'BEFORE']);
+        $examination = HumanExamination::create(['reference' => 'BEFORE']);
         $this->patchJson('/human-examinations/examinations/'.$examination->id, ['reference' => ['invalid']])
             ->assertUnprocessable()->assertJsonValidationErrors('reference');
         $this->assertSame('BEFORE', $examination->fresh()->reference);
@@ -294,7 +294,7 @@ class ExaminationRoutePolicy
         return $user->getAuthIdentifier() === 1;
     }
 
-    public function update(User $user, Examination $examination): bool
+    public function update(User $user, HumanExamination $examination): bool
     {
         return $user->getAuthIdentifier() === 1 && $examination->id === 1;
     }

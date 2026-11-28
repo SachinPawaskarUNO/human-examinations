@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace HumanExaminations\HumanExaminations\Enums;
 
-/** Standard suggestions; Observation::region also accepts custom text. */
-enum BodyRegion: string
+/** Standard suggestions; ExaminationObservation::region also accepts custom text. */
+enum ExaminationBodyRegion: string
 {
     case Head = 'Head';
     case Face = 'Face';

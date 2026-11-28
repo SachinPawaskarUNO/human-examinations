@@ -21,6 +21,10 @@ migrations. For scripts, use `--no-interaction` to publish only, or add
 `--migrate` to also run Laravel's normal `migrate` command. That command runs
 all pending application migrations and follows Laravel's production safeguards.
 
+After migrating, the installer also offers to add [sample data](#sample-data).
+For scripts, add `--seed` alongside `--migrate`. Sample data is never added in
+production.
+
 You may publish all of the package's resources at once:
 
 ```bash
@@ -88,3 +92,31 @@ create command uses the configured `CreateExamination` action. The commands
 run with the application's console and database access, so use them from a
 trusted shell. HTTP route settings and examination policies apply to HTTP
 requests.
+
+## Sample Data
+
+The package includes a seeder that adds three sample examinations: one with
+markers on the front and back sketches, one with observations not yet placed,
+and an empty draft. Run it, or call it from your app's `DatabaseSeeder`:
+
+```bash
+php artisan db:seed --class="HumanExaminations\HumanExaminations\Database\Seeders\HumanExaminationsSeeder"
+```
+
+```php
+$this->call(\HumanExaminations\HumanExaminations\Database\Seeders\HumanExaminationsSeeder::class);
+```
+
+The seeder always skips production (`APP_ENV=production`), even with `--force`,
+so it is safe to leave in your `DatabaseSeeder`. The samples use the references
+`SAMPLE-001` to `SAMPLE-003`, or your `reference_format` when one is set, and
+running it again does not duplicate them.
+Observation types use your configured enum, falling back to `Unspecified` when
+it lacks a sample type such as `Scar`. Person names are saved only when
+`person_name` is `'typed'`.
+
+The installer can run it for you after migrating:
+
+```bash
+php artisan human-examinations:install --migrate --seed --no-interaction
+```

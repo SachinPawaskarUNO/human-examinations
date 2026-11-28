@@ -2,7 +2,8 @@
 
 namespace Workbench\Database\Seeders;
 
-use HumanExaminations\HumanExaminations\Actions\CreateExamination;
+use HumanExaminations\HumanExaminations\Database\Seeders\HumanExaminationsSeeder;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Workbench\App\Models\Person;
@@ -24,15 +25,9 @@ class DatabaseSeeder extends Seeder
             'email' => 'test@example.com',
         ]);
 
-        // A demo person linked to an examination.
-        $examination = app(CreateExamination::class)->handle([
-            'examiner' => 'Demo Examiner',
-            'date' => now()->toDateString(),
-        ]);
-        $examination->observations()->create([
-            'number' => 1, 'type' => 'Scar', 'label' => 'Linear scar', 'region' => 'Right upper arm',
-            'sketch_id' => 'body-front', 'x' => 0.23, 'y' => 0.28,
-        ]);
+        // The package's sample examinations, with a demo person linked to the first.
+        $this->call(HumanExaminationsSeeder::class);
+        $examination = HumanExamination::query()->orderBy('id')->firstOrFail();
         Person::create(['name' => 'Jane Doe'])->humanExamination()->associate($examination)->save();
     }
 }

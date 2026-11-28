@@ -9,9 +9,9 @@ The package owns two independent tables: `human_examinations` and
 user tables. Publish and run the migrations before using the models.
 
 ```php
-use HumanExaminations\HumanExaminations\Models\Examination;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 
-$examination = Examination::create([
+$examination = HumanExamination::create([
     'reference' => 'EX-001',
     'examiner' => 'Dr Smith',
     'date' => '2026-11-12',
@@ -31,8 +31,8 @@ $observation = $examination->observations()->create([
     'y' => 0.32,
 ]);
 
-$observation->examination; // BelongsTo Examination
-$examination->observations; // HasMany Observation
+$observation->examination; // BelongsTo HumanExamination
+$examination->observations; // HasMany ExaminationObservation
 ```
 
 Examination metadata is nullable to support drafts. `date` is cast to a date and
@@ -49,7 +49,7 @@ and decimal casts with two decimal places.
 ## Observation Types
 
 An observation's `type` is cast to the
-`HumanExaminations\HumanExaminations\Enums\ObservationType` enum, a
+`HumanExaminations\HumanExaminations\Enums\ExaminationObservationType` enum, a
 string-backed enum with these values:
 
 `Unspecified`, `Scar`, `Tattoo`, `Birthmark`, `Injury`, `Gunshot wound`,
@@ -59,12 +59,12 @@ You may assign either the enum case or its string value. Reading `type` always
 returns the enum case, and the database stores the string value:
 
 ```php
-use HumanExaminations\HumanExaminations\Enums\ObservationType;
+use HumanExaminations\HumanExaminations\Enums\ExaminationObservationType;
 
-$examination->observations()->create(['number' => 2, 'type' => ObservationType::GunshotWound]);
+$examination->observations()->create(['number' => 2, 'type' => ExaminationObservationType::GunshotWound]);
 $examination->observations()->create(['number' => 3, 'type' => 'Gunshot wound']);
 
-$observation->type;        // ObservationType::GunshotWound
+$observation->type;        // ExaminationObservationType::GunshotWound
 $observation->type->value; // 'Gunshot wound'
 ```
 
@@ -82,7 +82,7 @@ Your enum must be string-backed and must include a case with the value
 `Unspecified`, which is the default type. The `type` column is a plain string,
 so changing the enum does not require a migration. However, existing rows whose
 values are not in the new enum will throw a `ValueError` when they are loaded.
-`Observation::typeEnum()` returns the configured enum class, for example to
+`ExaminationObservation::typeEnum()` returns the configured enum class, for example to
 build a list of options for a form.
 
 ## Observation Locations

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HumanExaminations\HumanExaminations\Console\Commands;
 
-use HumanExaminations\HumanExaminations\Models\Examination;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Formatter\OutputFormatter;
 
@@ -25,7 +25,7 @@ class ListExaminationsCommand extends Command
             return self::FAILURE;
         }
 
-        $examinations = Examination::query()->withCount('observations')->orderByDesc('id')->limit($limit)->get();
+        $examinations = HumanExamination::query()->withCount('observations')->orderByDesc('id')->limit($limit)->get();
 
         if ($examinations->isEmpty()) {
             $this->info('No active examinations found.');
@@ -33,7 +33,7 @@ class ListExaminationsCommand extends Command
             return self::SUCCESS;
         }
 
-        $this->table(['ID', 'Reference', 'Examiner', 'Date', 'Observations'], $examinations->map(fn (Examination $examination): array => [
+        $this->table(['ID', 'Reference', 'Examiner', 'Date', 'Observations'], $examinations->map(fn (HumanExamination $examination): array => [
             $examination->id,
             OutputFormatter::escape($examination->reference ?? ''),
             OutputFormatter::escape($examination->examiner ?? ''),

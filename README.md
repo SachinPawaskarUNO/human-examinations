@@ -35,14 +35,16 @@ php artisan human-examinations:install
 
 The installer publishes config and migrations and offers to run pending migrations. See [installation](docs/installation.md) for manual publish tags and the Artisan commands for creating, listing, and inspecting examinations. The optional Vue workspace uses Vue 3.5+ and the host’s Vite build.
 
+After migrating, the installer can also add sample examinations (`--seed` in scripts; never in production). See [sample data](docs/installation.md#sample-data).
+
 ## Quick Start
 
 ```php
 use HumanExaminations\HumanExaminations\Actions\CreateObservation;
-use HumanExaminations\HumanExaminations\Enums\BodyRegion;
-use HumanExaminations\HumanExaminations\Models\Examination;
+use HumanExaminations\HumanExaminations\Enums\ExaminationBodyRegion;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 
-$examination = Examination::create([
+$examination = HumanExamination::create([
     'reference' => 'EX-001',
     'examiner' => 'Demo Examiner',
     'date' => '2026-11-18',
@@ -51,7 +53,7 @@ $examination = Examination::create([
 $observation = app(CreateObservation::class)->handle($examination, [
     'type' => 'Scar',
     'label' => 'Linear scar',
-    'region' => BodyRegion::RightUpperArm->value,
+    'region' => ExaminationBodyRegion::RightUpperArm->value,
     'length_mm' => '32.50',
     'width_mm' => '4.25',
 ]);

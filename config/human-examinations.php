@@ -10,7 +10,7 @@ use HumanExaminations\HumanExaminations\Actions\ImportExamination;
 use HumanExaminations\HumanExaminations\Actions\RestoreObservation;
 use HumanExaminations\HumanExaminations\Actions\UpdateExamination;
 use HumanExaminations\HumanExaminations\Actions\UpdateObservation;
-use HumanExaminations\HumanExaminations\Enums\ObservationType;
+use HumanExaminations\HumanExaminations\Enums\ExaminationObservationType;
 
 return [
 
@@ -25,7 +25,7 @@ return [
     |
     */
 
-    'observation_type' => ObservationType::class,
+    'observation_type' => ExaminationObservationType::class,
 
     // Disabling import or export also omits its package HTTP route.
     'features' => [
@@ -39,7 +39,7 @@ return [
     // Where each examination's person name comes from:
     //   null      no names (default)
     //   'typed'   users type them in the workspace, and they are saved
-    //   a class   implementing ResolvesPersonName, read from your app; shown read-only
+    //   a class   implementing ExaminationResolvesPersonName, read from your app; shown read-only
     'person_name' => null,
 
     // Initial view, display mode, and sketch height in pixels.

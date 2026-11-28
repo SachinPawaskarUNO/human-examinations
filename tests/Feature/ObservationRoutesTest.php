@@ -8,8 +8,8 @@ use HumanExaminations\HumanExaminations\Actions\CreateObservation;
 use HumanExaminations\HumanExaminations\Actions\DeleteObservation;
 use HumanExaminations\HumanExaminations\Actions\RestoreObservation;
 use HumanExaminations\HumanExaminations\Actions\UpdateObservation;
-use HumanExaminations\HumanExaminations\Models\Examination;
-use HumanExaminations\HumanExaminations\Models\Observation;
+use HumanExaminations\HumanExaminations\Models\ExaminationObservation;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 use HumanExaminations\HumanExaminations\Tests\TestCase;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Gate;
@@ -40,7 +40,7 @@ class ObservationRoutesTest extends TestCase
 
     public function test_guests_cannot_write_observations(): void
     {
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $observation = $exam->observations()->create(['number' => 1]);
 
         $this->postJson($this->url($exam))->assertUnauthorized();
@@ -53,7 +53,7 @@ class ObservationRoutesTest extends TestCase
     public function test_authenticated_users_without_a_host_policy_cannot_write_observations(): void
     {
         $this->actingAs((new User)->forceFill(['id' => 1]));
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $observation = $exam->observations()->create(['number' => 1]);
 
         $this->postJson($this->url($exam))->assertForbidden();
@@ -65,7 +65,7 @@ class ObservationRoutesTest extends TestCase
     public function test_parent_authorization_happens_before_validation_and_mutation(): void
     {
         $this->allowWrites();
-        $exam = Examination::create(['reference' => 'PRIVATE']);
+        $exam = HumanExamination::create(['reference' => 'PRIVATE']);
         $observation = $exam->observations()->create(['number' => 1, 'label' => 'Before']);
 
         $this->postJson($this->url($exam), ['type' => ['invalid']])->assertForbidden();
@@ -79,7 +79,7 @@ class ObservationRoutesTest extends TestCase
     public function test_authorized_crud_persists_fields_and_soft_deletes_records(): void
     {
         $this->allowWrites();
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $this->from('/host')->post($this->url($exam), [
             'type' => 'Scar', 'label' => 'Linear scar', 'region' => 'Right arm',
             'description' => 'Healed', 'length_mm' => '32.50', 'width_mm' => 0,
@@ -108,8 +108,8 @@ class ObservationRoutesTest extends TestCase
     public function test_numbers_are_assigned_per_examination_and_never_reuse_soft_deleted_numbers(): void
     {
         $this->allowWrites();
-        $first = Examination::create([]);
-        $second = Examination::create([]);
+        $first = HumanExamination::create([]);
+        $second = HumanExamination::create([]);
         $deleted = $first->observations()->create(['number' => 7]);
         $deleted->delete();
 
@@ -123,8 +123,8 @@ class ObservationRoutesTest extends TestCase
     public function test_child_ids_are_scoped_to_the_parent_examination(): void
     {
         $this->allowWrites();
-        $first = Examination::create([]);
-        $second = Examination::create([]);
+        $first = HumanExamination::create([]);
+        $second = HumanExamination::create([]);
         $observation = $second->observations()->create(['number' => 1, 'label' => 'Before']);
 
         $this->patchJson($this->url($first, $observation), ['label' => 'Changed'])->assertNotFound();
@@ -136,7 +136,7 @@ class ObservationRoutesTest extends TestCase
     public function test_soft_deleted_parents_and_children_are_not_writable(): void
     {
         $this->allowWrites();
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $observation = $exam->observations()->create(['number' => 1]);
         $observation->delete();
         $this->patchJson($this->url($exam, $observation))->assertNotFound();
@@ -152,7 +152,7 @@ class ObservationRoutesTest extends TestCase
     public function test_identity_and_ownership_cannot_be_assigned_from_http_payloads(): void
     {
         $this->allowWrites();
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $observation = $exam->observations()->create(['number' => 1]);
         $payload = ['id' => 8, 'number' => 5, 'examination_id' => 9];
 
@@ -167,7 +167,7 @@ class ObservationRoutesTest extends TestCase
     public function test_partial_location_updates_validate_the_merged_location(): void
     {
         $this->allowWrites();
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $observation = $exam->observations()->create([
             'number' => 1, 'sketch_id' => 'body-front', 'x' => 0.5, 'y' => 0.5,
         ]);
@@ -187,7 +187,7 @@ class ObservationRoutesTest extends TestCase
     public function test_invalid_payloads_return_validation_errors_without_changing_records(array $payload, string $field): void
     {
         $this->allowWrites();
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $observation = $exam->observations()->create(['number' => 1, 'label' => 'Before']);
 
         $this->postJson($this->url($exam), $payload)->assertUnprocessable()->assertJsonValidationErrors($field);
@@ -219,7 +219,7 @@ class ObservationRoutesTest extends TestCase
     public function test_custom_route_configuration_retains_scoped_bindings_without_web_middleware(): void
     {
         $this->allowWrites();
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $this->assertFalse(Route::has('human-examinations.observations.store'));
         $this->postJson(route('custom.observations.store', $exam), ['label' => 'Custom'])->assertRedirect();
         $observation = $exam->observations()->sole();
@@ -240,7 +240,7 @@ class ObservationRoutesTest extends TestCase
     {
         $this->allowWrites();
         config()->set('human-examinations.observation_type', RoutedObservationType::class);
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $this->postJson($this->url($exam), ['type' => 'Custom finding'])->assertRedirect();
         $observation = $exam->observations()->sole();
         $this->assertSame(RoutedObservationType::Finding, $observation->type);
@@ -252,8 +252,8 @@ class ObservationRoutesTest extends TestCase
     #[DefineEnvironment('customRoutes')]
     public function test_removing_auth_middleware_still_requires_parent_authorization(): void
     {
-        Gate::policy(Examination::class, ObservationParentPolicy::class);
-        $exam = Examination::create([]);
+        Gate::policy(HumanExamination::class, ObservationParentPolicy::class);
+        $exam = HumanExamination::create([]);
         $observation = $exam->observations()->create(['number' => 1]);
         $this->postJson(route('custom.observations.store', $exam))->assertForbidden();
         $this->patchJson(route('custom.observations.update', [$exam, $observation]))->assertForbidden();
@@ -267,7 +267,7 @@ class ObservationRoutesTest extends TestCase
         config()->set('human-examinations.actions.create_observation', RoutedCreateObservation::class);
         config()->set('human-examinations.actions.update_observation', RoutedUpdateObservation::class);
         config()->set('human-examinations.actions.delete_observation', RoutedDeleteObservation::class);
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $this->postJson($this->url($exam))->assertRedirect();
         $observation = $exam->observations()->sole();
         $this->assertSame('Custom create', $observation->label);
@@ -280,8 +280,8 @@ class ObservationRoutesTest extends TestCase
 
     public function test_default_actions_preserve_observation_identity_and_parent(): void
     {
-        $exam = Examination::create([]);
-        $other = Examination::create([]);
+        $exam = HumanExamination::create([]);
+        $other = HumanExamination::create([]);
         $observation = app(CreateObservation::class)->handle($exam, [
             'id' => 99, 'number' => 40, 'examination_id' => $other->id,
         ]);
@@ -301,7 +301,7 @@ class ObservationRoutesTest extends TestCase
     public function test_restore_preserves_identity_number_fields_and_location(): void
     {
         $this->allowWrites();
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $observation = $exam->observations()->create(['number' => 4, 'label' => 'Keep', 'region' => 'Custom', 'sketch_id' => 'body-front', 'x' => 0.5, 'y' => 0.4]);
         $observation->delete();
         $this->from('/host')->post($this->url($exam, $observation).'/restore', ['number' => 99, 'label' => 'Ignored'])->assertRedirect('/host');
@@ -317,8 +317,8 @@ class ObservationRoutesTest extends TestCase
 
     public function test_restore_requires_authorization_and_the_correct_active_parent(): void
     {
-        $exam = Examination::create([]);
-        $other = Examination::create([]);
+        $exam = HumanExamination::create([]);
+        $other = HumanExamination::create([]);
         $observation = $exam->observations()->create(['number' => 1]);
         $observation->delete();
         $this->postJson($this->url($exam, $observation).'/restore')->assertUnauthorized();
@@ -337,7 +337,7 @@ class ObservationRoutesTest extends TestCase
     {
         $this->allowWrites();
         config()->set('human-examinations.actions.restore_observation', RoutedRestoreObservation::class);
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $observation = $exam->observations()->create(['number' => 1]);
         $observation->delete();
         $this->postJson($this->url($exam, $observation).'/restore')->assertRedirect();
@@ -346,11 +346,11 @@ class ObservationRoutesTest extends TestCase
 
     private function allowWrites(): void
     {
-        Gate::policy(Examination::class, ObservationParentPolicy::class);
+        Gate::policy(HumanExamination::class, ObservationParentPolicy::class);
         $this->actingAs((new User)->forceFill(['id' => 1]));
     }
 
-    private function url(Examination $exam, ?Observation $observation = null): string
+    private function url(HumanExamination $exam, ?ExaminationObservation $observation = null): string
     {
         return '/human-examinations/examinations/'.$exam->id.'/observations'
             .($observation === null ? '' : '/'.$observation->id);
@@ -359,7 +359,7 @@ class ObservationRoutesTest extends TestCase
 
 class ObservationParentPolicy
 {
-    public function update(User $user, Examination $examination): bool
+    public function update(User $user, HumanExamination $examination): bool
     {
         return $user->getAuthIdentifier() === 1 && $examination->reference !== 'PRIVATE';
     }
@@ -373,7 +373,7 @@ enum RoutedObservationType: string
 
 class RoutedCreateObservation extends CreateObservation
 {
-    public function handle(Examination $examination, array $attributes = []): Observation
+    public function handle(HumanExamination $examination, array $attributes = []): ExaminationObservation
     {
         return parent::handle($examination, [...$attributes, 'label' => 'Custom create']);
     }
@@ -381,7 +381,7 @@ class RoutedCreateObservation extends CreateObservation
 
 class RoutedUpdateObservation extends UpdateObservation
 {
-    public function handle(Observation $observation, array $attributes): Observation
+    public function handle(ExaminationObservation $observation, array $attributes): ExaminationObservation
     {
         return parent::handle($observation, [...$attributes, 'label' => 'Custom update']);
     }
@@ -389,7 +389,7 @@ class RoutedUpdateObservation extends UpdateObservation
 
 class RoutedDeleteObservation extends DeleteObservation
 {
-    public function handle(Observation $observation): void
+    public function handle(ExaminationObservation $observation): void
     {
         $observation->update(['label' => 'Custom delete']);
         parent::handle($observation);
@@ -398,7 +398,7 @@ class RoutedDeleteObservation extends DeleteObservation
 
 class RoutedRestoreObservation extends RestoreObservation
 {
-    public function handle(Observation $observation): Observation
+    public function handle(ExaminationObservation $observation): ExaminationObservation
     {
         $restored = parent::handle($observation);
         $restored->update(['label' => 'Custom restore']);

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace HumanExaminations\HumanExaminations\Console\Commands;
 
-use HumanExaminations\HumanExaminations\Models\Examination;
-use HumanExaminations\HumanExaminations\Models\Observation;
+use HumanExaminations\HumanExaminations\Models\ExaminationObservation;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Formatter\OutputFormatter;
 
@@ -33,7 +33,7 @@ class ShowExaminationCommand extends Command
             return self::FAILURE;
         }
 
-        $examination = Examination::query()->find($id);
+        $examination = HumanExamination::query()->find($id);
 
         if ($examination === null) {
             $this->error('No active examination found for ID '.$id.'.');
@@ -57,7 +57,7 @@ class ShowExaminationCommand extends Command
             return self::SUCCESS;
         }
 
-        $this->table(['No.', 'Type', 'Label', 'Region', 'Sketch'], $observations->map(fn (Observation $observation): array => [
+        $this->table(['No.', 'Type', 'Label', 'Region', 'Sketch'], $observations->map(fn (ExaminationObservation $observation): array => [
             $observation->number,
             OutputFormatter::escape((string) $observation->type->value),
             OutputFormatter::escape($observation->label ?? ''),

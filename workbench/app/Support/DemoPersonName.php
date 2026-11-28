@@ -2,13 +2,13 @@
 
 namespace Workbench\App\Support;
 
-use HumanExaminations\HumanExaminations\Contracts\ResolvesPersonName;
-use HumanExaminations\HumanExaminations\Models\Examination;
+use HumanExaminations\HumanExaminations\Contracts\ExaminationResolvesPersonName;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 
 // Reads the name through the demo's person relationship, as a host app would with its own records.
-class DemoPersonName implements ResolvesPersonName
+class DemoPersonName implements ExaminationResolvesPersonName
 {
-    public function personName(Examination $examination): ?string
+    public function personName(HumanExamination $examination): ?string
     {
         return $examination->person?->name;
     }

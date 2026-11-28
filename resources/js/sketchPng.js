@@ -7,6 +7,12 @@ const page = {width: 612, height: 792, margin: 36, dpi: 300};
 const contentWidth = page.width - 2 * page.margin;
 const legendColumns = 3;
 const legendRowHeight = 12;
+const maxLegendRows = Math.floor(page.height * 0.2 / legendRowHeight);
+
+// Longer legends use more columns, so they take fewer rows.
+function legendColumnsFor(count) {
+    return count > 20 ? 5 : count > 12 ? 4 : legendColumns;
+}
 const credit = 'Artwork: INTERPOL DVI Form 2023, physical PDF page 14, Appendix 2 (835 Body Sketch). Anatomical left and right refer to the subject. Extracted with permission.';
 
 export function sketchMarkers(sketch, observations, markerColors = {}) {
@@ -76,7 +82,7 @@ export function exportHeader(sketch, examination, exportedAt, measure) {
 // Fits the sketch between the header and the legend.
 export function exportLayout(sketch, headerHeight, legendCount) {
     const sketchTop = page.margin + headerHeight + 20;
-    const legendRows = Math.ceil(legendCount / legendColumns);
+    const legendRows = Math.ceil(legendCount / legendColumnsFor(legendCount));
     const legendTop = page.height - page.margin - 18 - legendRows * legendRowHeight;
     const space = legendTop - 14 - sketchTop;
     const scale = Math.min(contentWidth / sketch.width, space / sketch.height);
@@ -95,6 +101,10 @@ export async function renderSketchPng(sketch, observations, {examination = {}, m
     const markers = sketchMarkers(sketch, observations, markerColors);
     const legend = [...new Map(markers.map(({type, colors}) => [type, colors]))]
         .sort(([a], [b]) => a.localeCompare(b));
+    // Past the cap, the last legend slot says how many types are left out.
+    const columns = legendColumnsFor(legend.length);
+    const legendSlots = maxLegendRows * columns;
+    const hiddenTypes = legend.length > legendSlots ? legend.splice(legendSlots - 1).length : 0;
 
     const image = new Image();
     image.crossOrigin = 'anonymous'; // Sketches may be served by Vite or a CDN.
@@ -156,14 +166,21 @@ export async function renderSketchPng(sketch, observations, {examination = {}, m
     // Legend and credit
     ctx.textAlign = 'left';
     ctx.font = '8px sans-serif';
-    const columnWidth = contentWidth / legendColumns;
+    const columnWidth = contentWidth / columns;
     for (const [index, [type, colors]] of legend.entries()) {
-        const x = page.margin + (index % legendColumns) * columnWidth;
-        const y = layout.legendTop + Math.floor(index / legendColumns) * legendRowHeight;
+        const x = page.margin + (index % columns) * columnWidth;
+        const y = layout.legendTop + Math.floor(index / columns) * legendRowHeight;
         ctx.fillStyle = colors['--he-observation-color'];
         ctx.fillRect(x, y - 3.5, 7, 7);
         ctx.fillStyle = '#171717';
         ctx.fillText(type, x + 11, y, columnWidth - 16);
+    }
+    if (hiddenTypes) {
+        const index = legend.length;
+        const x = page.margin + (index % columns) * columnWidth;
+        const y = layout.legendTop + Math.floor(index / columns) * legendRowHeight;
+        ctx.fillStyle = '#171717';
+        ctx.fillText(`+${hiddenTypes} more types`, x + 11, y, columnWidth - 16);
     }
     ctx.fillStyle = '#525252';
     ctx.font = '7px sans-serif';

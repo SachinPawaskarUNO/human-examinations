@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HumanExaminations\HumanExaminations\Tests\Feature;
 
-use HumanExaminations\HumanExaminations\Models\Examination;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 use HumanExaminations\HumanExaminations\Tests\TestCase;
 use Illuminate\Support\Facades\Schema;
 use Orchestra\Testbench\Attributes\DefineEnvironment;
@@ -106,7 +106,7 @@ class ExaminationConsoleTest extends TestCase
         $this->artisan('human-examinations:create', ['--reference' => 'SCRIPT-1', '--date' => '2026-02-28', '--no-interaction' => true])
             ->expectsOutputToContain('Examination #1 created.')
             ->assertSuccessful();
-        $this->assertSame('2026-02-28', Examination::query()->sole()->date?->format('Y-m-d'));
+        $this->assertSame('2026-02-28', HumanExamination::query()->sole()->date?->format('Y-m-d'));
     }
 
     public function test_operators_can_create_with_prompts_or_cancel_without_a_write(): void
@@ -128,8 +128,8 @@ class ExaminationConsoleTest extends TestCase
     public function test_list_and_show_only_include_active_examinations_and_observations(): void
     {
         $this->migratePackage();
-        $exam = Examination::create(['reference' => 'ACTIVE-EXAM']);
-        Examination::create(['reference' => 'DELETED-EXAM'])->delete();
+        $exam = HumanExamination::create(['reference' => 'ACTIVE-EXAM']);
+        HumanExamination::create(['reference' => 'DELETED-EXAM'])->delete();
         $exam->observations()->create(['number' => 1, 'type' => 'Scar', 'label' => 'Active observation']);
         $exam->observations()->create(['number' => 2, 'type' => 'Bruise', 'label' => 'Deleted observation'])->delete();
 

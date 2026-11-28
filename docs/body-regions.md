@@ -3,7 +3,7 @@
 [Documentation Index](README.md) · [Package Overview](../README.md)
 
 
-The package provides **99 standard region choices** through `Enums\BodyRegion` and the frontend catalog. Region suggestions are editable application zones: review the suggested label and refine it for the observation as needed.
+The package provides **99 standard region choices** through `Enums\ExaminationBodyRegion` and the frontend catalog. Region suggestions are editable application zones: review the suggested label and refine it for the observation as needed.
 
 ## Reading the Maps
 
@@ -96,15 +96,15 @@ suggestions use the detailed hand and foot views. Broader labels such as
 case/choice is replaced by `Groin`; left/right buttocks remain separate choices.
 Existing saved region text, including `Buttocks`, is preserved when edited.
 
-`BodyRegion` provides standard string values for PHP consumers:
+`ExaminationBodyRegion` provides standard string values for PHP consumers:
 
 ```php
-use HumanExaminations\HumanExaminations\Enums\BodyRegion;
+use HumanExaminations\HumanExaminations\Enums\ExaminationBodyRegion;
 
-$observation->update(['region' => BodyRegion::RightUpperArm->value]);
-$observation->update(['region' => BodyRegion::LeftButtock->value]);
-$observation->update(['region' => BodyRegion::Groin->value]);
-$observation->update(['region' => BodyRegion::RightIndexFinger->value]);
+$observation->update(['region' => ExaminationBodyRegion::RightUpperArm->value]);
+$observation->update(['region' => ExaminationBodyRegion::LeftButtock->value]);
+$observation->update(['region' => ExaminationBodyRegion::Groin->value]);
+$observation->update(['region' => ExaminationBodyRegion::RightIndexFinger->value]);
 $observation->update(['region' => 'Posterior right upper arm, near elbow']);
 ```
 
@@ -134,7 +134,7 @@ server accepts the region text supplied by the host.
 
 ## Standard Region Catalog
 
-PHP cases are in [`BodyRegion.php`](../src/Enums/BodyRegion.php). The matching frontend keys and labels are in [`body-regions.json`](../resources/body-regions.json). Save the string label in `region`; the reference number is only a map key.
+PHP cases are in [`ExaminationBodyRegion.php`](../src/Enums/ExaminationBodyRegion.php). The matching frontend keys and labels are in [`body-regions.json`](../resources/body-regions.json). Save the string label in `region`; the reference number is only a map key.
 
 | Map key | Enum case / frontend key | Stored label |
 | --- | --- | --- |

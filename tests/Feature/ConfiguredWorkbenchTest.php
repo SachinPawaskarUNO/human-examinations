@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace HumanExaminations\HumanExaminations\Tests\Feature;
 
-use HumanExaminations\HumanExaminations\Enums\BodyRegion;
-use HumanExaminations\HumanExaminations\Models\Examination;
+use HumanExaminations\HumanExaminations\Enums\ExaminationBodyRegion;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 use HumanExaminations\HumanExaminations\Tests\TestCase;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\UploadedFile;
@@ -65,7 +65,7 @@ class ConfiguredWorkbenchTest extends TestCase
         $this->assertTrue(Route::has('demo.examinations.export'));
         $this->postJson('/demo/forensics/examinations/import')->assertStatus(405);
 
-        $examination = Examination::create([]);
+        $examination = HumanExamination::create([]);
         foreach (['/', route('workbench.examinations.show', $examination)] as $url) {
             $this->get($url)->assertOk()->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('Workspace', false)
@@ -92,7 +92,7 @@ class ConfiguredWorkbenchTest extends TestCase
 
     public function test_an_examination_workspace_receives_the_configured_update_url(): void
     {
-        $examination = Examination::create(['reference' => 'DEMO']);
+        $examination = HumanExamination::create(['reference' => 'DEMO']);
 
         $this->get(route('workbench.examinations.show', $examination))
             ->assertOk()->assertInertia(function (AssertableInertia $page) use ($examination): void {
@@ -110,7 +110,7 @@ class ConfiguredWorkbenchTest extends TestCase
         $this->post(route('demo.examinations.store'), ['reference' => 'DEMO'])
             ->assertRedirect(route('workbench.examinations.show', 1));
 
-        $examination = Examination::query()->sole();
+        $examination = HumanExamination::query()->sole();
         $this->from(route('workbench.examinations.show', $examination))
             ->patch(route('demo.examinations.update', $examination), ['notes' => 'Saved in the demo'])
             ->assertRedirect(route('workbench.examinations.show', $examination));
@@ -119,7 +119,7 @@ class ConfiguredWorkbenchTest extends TestCase
 
     public function test_the_workbench_imports_into_a_new_workspace_without_overwriting_the_source(): void
     {
-        $original = Examination::create(['reference' => 'Source']);
+        $original = HumanExamination::create(['reference' => 'Source']);
         $original->observations()->create(['number' => 6, 'type' => 'Scar', 'region' => 'Manual region', 'sketch_id' => 'body-back', 'x' => 0.4, 'y' => 0.3]);
         $json = $this->get(route('demo.examinations.export', $original))->assertOk()->streamedContent();
         $this->post(route('demo.examinations.import'), ['file' => UploadedFile::fake()->createWithContent('export.json', $json)])
@@ -134,11 +134,11 @@ class ConfiguredWorkbenchTest extends TestCase
 
     public function test_the_workspace_loads_only_its_active_observations_in_number_order(): void
     {
-        $exam = Examination::create(['date' => '2026-11-19']);
+        $exam = HumanExamination::create(['date' => '2026-11-19']);
         $later = $exam->observations()->create(['number' => 8]);
         $earlier = $exam->observations()->create(['number' => 2, 'type' => 'Scar', 'length_mm' => 12.5]);
         $exam->observations()->create(['number' => 3])->delete();
-        Examination::create([])->observations()->create(['number' => 1]);
+        HumanExamination::create([])->observations()->create(['number' => 1]);
 
         $this->get(route('workbench.examinations.show', $exam))->assertOk()
             ->assertInertia(function (AssertableInertia $page) use ($exam, $earlier, $later): void {
@@ -159,7 +159,7 @@ class ConfiguredWorkbenchTest extends TestCase
 
     public function test_deleted_observations_can_be_restored_from_the_workbench_with_the_same_identity(): void
     {
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $workspace = route('workbench.examinations.show', $exam);
         $observation = $exam->observations()->create(['number' => 5, 'type' => 'Scar', 'region' => 'Manual location', 'sketch_id' => 'body-back', 'x' => 0.4, 'y' => 0.3]);
         $id = $observation->id;
@@ -179,7 +179,7 @@ class ConfiguredWorkbenchTest extends TestCase
 
     public function test_observation_creates_edits_and_deletes_survive_workspace_reloads(): void
     {
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $workspace = route('workbench.examinations.show', $exam);
         $this->from($workspace)->post(route('demo.observations.store', $exam), ['label' => 'Saved'])
             ->assertRedirect($workspace);
@@ -198,7 +198,7 @@ class ConfiguredWorkbenchTest extends TestCase
 
     public function test_inertia_shares_observation_validation_errors_without_creating_records(): void
     {
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $workspace = route('workbench.examinations.show', $exam);
         $this->from($workspace)->post(route('demo.observations.store', $exam), ['length_mm' => -1])
             ->assertRedirect($workspace)->assertSessionHasErrors('length_mm');
@@ -209,18 +209,18 @@ class ConfiguredWorkbenchTest extends TestCase
 
     public function test_workspace_reads_require_examination_view_permission(): void
     {
-        Gate::policy(Examination::class, DeniedWorkbenchExaminationPolicy::class);
-        $exam = Examination::create([]);
+        Gate::policy(HumanExamination::class, DeniedWorkbenchExaminationPolicy::class);
+        $exam = HumanExamination::create([]);
         $exam->observations()->create(['number' => 1, 'label' => 'Private finding']);
         $this->getJson(route('workbench.examinations.show', $exam))->assertForbidden();
     }
 
     public function test_standard_custom_and_cleared_regions_survive_workspace_reloads(): void
     {
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $workspace = route('workbench.examinations.show', $exam);
         $this->from($workspace)->post(route('demo.observations.store', $exam), [
-            'type' => 'Scar', 'region' => BodyRegion::RightUpperArm->value,
+            'type' => 'Scar', 'region' => ExaminationBodyRegion::RightUpperArm->value,
             'sketch_id' => 'body-front', 'x' => 0.23, 'y' => 0.28,
         ])->assertRedirect($workspace);
         $observation = $exam->observations()->sole();
@@ -237,15 +237,15 @@ class ConfiguredWorkbenchTest extends TestCase
 
     public function test_specific_body_regions_reload_with_their_marker_locations(): void
     {
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $workspace = route('workbench.examinations.show', $exam);
         $examples = [
-            [BodyRegion::LeftButtock, 'body-back', 0.43, 0.46],
-            [BodyRegion::RightRingFinger, 'hand-right-dorsal', 0.26, 0.82],
-            [BodyRegion::LeftBigToe, 'foot-left-dorsal', 0.32, 0.92],
-            [BodyRegion::Groin, 'body-front', 0.5, 0.48],
-            [BodyRegion::LeftInnerThigh, 'body-back', 0.425, 0.6],
-            [BodyRegion::RightNipple, 'body-front', 0.365033, 0.252963],
+            [ExaminationBodyRegion::LeftButtock, 'body-back', 0.43, 0.46],
+            [ExaminationBodyRegion::RightRingFinger, 'hand-right-dorsal', 0.26, 0.82],
+            [ExaminationBodyRegion::LeftBigToe, 'foot-left-dorsal', 0.32, 0.92],
+            [ExaminationBodyRegion::Groin, 'body-front', 0.5, 0.48],
+            [ExaminationBodyRegion::LeftInnerThigh, 'body-back', 0.425, 0.6],
+            [ExaminationBodyRegion::RightNipple, 'body-front', 0.365033, 0.252963],
         ];
 
         foreach ($examples as $index => [$region, $sketch, $x, $y]) {
@@ -265,7 +265,7 @@ class ConfiguredWorkbenchTest extends TestCase
 
     public function test_marker_creation_and_initial_placement_reload_with_their_observations(): void
     {
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $workspace = route('workbench.examinations.show', $exam);
         $this->from($workspace)->post(route('demo.observations.store', $exam), [
             'type' => 'Scar', 'label' => 'Back scar',
@@ -290,7 +290,7 @@ class ConfiguredWorkbenchTest extends TestCase
 
 class DeniedWorkbenchExaminationPolicy extends ExaminationPolicy
 {
-    public function view(?Authenticatable $user, Examination $examination): bool
+    public function view(?Authenticatable $user, HumanExamination $examination): bool
     {
         return false;
     }

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace HumanExaminations\HumanExaminations\Contracts;
 
-use HumanExaminations\HumanExaminations\Models\Examination;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 
 /** Reads an examination's person name from the host app, e.g. through its own relationship. */
-interface ResolvesPersonName
+interface ExaminationResolvesPersonName
 {
-    public function personName(Examination $examination): ?string;
+    public function personName(HumanExamination $examination): ?string;
 }

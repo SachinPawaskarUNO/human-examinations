@@ -8,8 +8,8 @@ use HumanExaminations\HumanExaminations\Actions\CreateObservation;
 use HumanExaminations\HumanExaminations\Actions\DeleteObservation;
 use HumanExaminations\HumanExaminations\Actions\RestoreObservation;
 use HumanExaminations\HumanExaminations\Actions\UpdateObservation;
-use HumanExaminations\HumanExaminations\Models\Examination;
-use HumanExaminations\HumanExaminations\Models\Observation;
+use HumanExaminations\HumanExaminations\Models\ExaminationObservation;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 use HumanExaminations\HumanExaminations\Support\RecordRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,9 +17,9 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
 
-class ObservationController
+class ExaminationObservationController
 {
-    public function store(Request $request, Examination $examination, CreateObservation $createObservation): RedirectResponse
+    public function store(Request $request, HumanExamination $examination, CreateObservation $createObservation): RedirectResponse
     {
         Gate::authorize('update', $examination);
 
@@ -28,7 +28,7 @@ class ObservationController
         return back();
     }
 
-    public function update(Request $request, Examination $examination, Observation $observation, UpdateObservation $updateObservation): RedirectResponse
+    public function update(Request $request, HumanExamination $examination, ExaminationObservation $observation, UpdateObservation $updateObservation): RedirectResponse
     {
         Gate::authorize('update', $examination);
 
@@ -37,7 +37,7 @@ class ObservationController
         return back();
     }
 
-    public function destroy(Examination $examination, Observation $observation, DeleteObservation $deleteObservation): RedirectResponse
+    public function destroy(HumanExamination $examination, ExaminationObservation $observation, DeleteObservation $deleteObservation): RedirectResponse
     {
         Gate::authorize('update', $examination);
 
@@ -46,7 +46,7 @@ class ObservationController
         return back();
     }
 
-    public function restore(Examination $examination, string $observation, RestoreObservation $restoreObservation): RedirectResponse
+    public function restore(HumanExamination $examination, string $observation, RestoreObservation $restoreObservation): RedirectResponse
     {
         Gate::authorize('update', $examination);
 
@@ -58,7 +58,7 @@ class ObservationController
     }
 
     /** @return array<string, mixed> */
-    private function validated(Request $request, ?Observation $observation = null): array
+    private function validated(Request $request, ?ExaminationObservation $observation = null): array
     {
         $rules = RecordRules::observation();
         $rules['type'] = ['sometimes', ...$rules['type']];

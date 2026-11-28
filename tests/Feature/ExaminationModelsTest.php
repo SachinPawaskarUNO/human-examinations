@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use HumanExaminations\HumanExaminations\Enums\ObservationType;
+use HumanExaminations\HumanExaminations\Enums\ExaminationObservationType;
 use HumanExaminations\HumanExaminations\HumanExaminationsServiceProvider;
-use HumanExaminations\HumanExaminations\Models\Examination;
-use HumanExaminations\HumanExaminations\Models\Observation;
+use HumanExaminations\HumanExaminations\Models\ExaminationObservation;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Carbon;
@@ -63,7 +63,7 @@ it('creates and rolls back the publishable package tables without altering host 
 });
 
 it('persists examination details with date and timestamp casts', function () {
-    $examination = Examination::query()->create([
+    $examination = HumanExamination::query()->create([
         'reference' => 'EX-001',
         'examiner' => 'Dr Smith',
         'date' => '2026-11-12',
@@ -81,7 +81,7 @@ it('persists examination details with date and timestamp casts', function () {
 });
 
 it('supports draft examinations without metadata or observations', function () {
-    $examination = Examination::query()->create([])->fresh();
+    $examination = HumanExamination::query()->create([])->fresh();
 
     expect($examination->reference)->toBeNull()
         ->and($examination->examiner)->toBeNull()
@@ -91,8 +91,8 @@ it('supports draft examinations without metadata or observations', function () {
 });
 
 it('relates observations to their examination and casts measurements and locations', function () {
-    $examination = Examination::query()->create([]);
-    $other = Examination::query()->create([]);
+    $examination = HumanExamination::query()->create([]);
+    $other = HumanExamination::query()->create([]);
     $observation = $examination->observations()->create([
         'number' => 1,
         'type' => 'Scar',
@@ -110,7 +110,7 @@ it('relates observations to their examination and casts measurements and locatio
         ->and($examination->observations->modelKeys())->toBe([$observation->id])
         ->and($other->observations)->toBeEmpty()
         ->and($observation->number)->toBe(1)
-        ->and($observation->type)->toBe(ObservationType::Scar)
+        ->and($observation->type)->toBe(ExaminationObservationType::Scar)
         ->and($observation->label)->toBe('Linear scar')
         ->and($observation->region)->toBe('Right upper arm')
         ->and($observation->description)->toBe('Healed scar.')
@@ -122,9 +122,9 @@ it('relates observations to their examination and casts measurements and locatio
 });
 
 it('supports observations without measurements or a sketch location and can clear locations', function () {
-    $observation = Examination::query()->create([])->observations()->create(['number' => 1])->fresh();
+    $observation = HumanExamination::query()->create([])->observations()->create(['number' => 1])->fresh();
 
-    expect($observation->type)->toBe(ObservationType::Unspecified)
+    expect($observation->type)->toBe(ExaminationObservationType::Unspecified)
         ->and($observation->label)->toBeNull()
         ->and($observation->region)->toBeNull()
         ->and($observation->description)->toBeNull()
@@ -145,7 +145,7 @@ it('supports observations without measurements or a sketch location and can clea
 });
 
 it('rejects invalid observation locations and measurements on create and update', function (array $attributes) {
-    $examination = Examination::query()->create([]);
+    $examination = HumanExamination::query()->create([]);
     expect(fn () => $examination->observations()->create(['number' => 1, ...$attributes]))
         ->toThrow(DomainException::class);
 
@@ -173,8 +173,8 @@ it('rejects invalid observation locations and measurements on create and update'
 ]);
 
 it('enforces unique observation numbers within each examination in the database', function () {
-    $first = Examination::query()->create([]);
-    $second = Examination::query()->create([]);
+    $first = HumanExamination::query()->create([]);
+    $second = HumanExamination::query()->create([]);
     $observation = $first->observations()->create(['number' => 1]);
     $second->observations()->create(['number' => 1]);
     $observation->delete();
@@ -191,7 +191,7 @@ it('rejects observations with a nonexistent examination in the database', functi
 });
 
 it('soft deletes and restores observations independently', function () {
-    $examination = Examination::query()->create([]);
+    $examination = HumanExamination::query()->create([]);
     $observation = $examination->observations()->create(['number' => 1]);
     $observation->delete();
 
@@ -204,13 +204,13 @@ it('soft deletes and restores observations independently', function () {
 });
 
 it('preserves observations when an examination is soft deleted and cascades permanent deletion', function () {
-    $examination = Examination::query()->create([]);
+    $examination = HumanExamination::query()->create([]);
     $observation = $examination->observations()->create(['number' => 1]);
-    $other = Examination::query()->create([]);
+    $other = HumanExamination::query()->create([]);
     $other->observations()->create(['number' => 1]);
     $examination->delete();
 
-    expect(Examination::query()->find($examination->id))->toBeNull()
+    expect(HumanExamination::query()->find($examination->id))->toBeNull()
         ->and($observation->fresh())->not->toBeNull()
         ->and($observation->fresh()->examination)->toBeNull();
 
@@ -219,7 +219,7 @@ it('preserves observations when an examination is soft deleted and cascades perm
     $observation->delete();
     $examination->forceDelete();
 
-    expect(Observation::withTrashed()->find($observation->id))->toBeNull()
+    expect(ExaminationObservation::withTrashed()->find($observation->id))->toBeNull()
         ->and($other->fresh())->not->toBeNull()
         ->and($other->observations()->count())->toBe(1);
 });

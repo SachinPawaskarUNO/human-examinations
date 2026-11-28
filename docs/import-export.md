@@ -56,6 +56,8 @@ CSV is export-only. It contains one row per active observation, with examination
 
 The format identifier, integer version, examination object, and observations array are required. Examination metadata fields are optional and nullable. Each observation needs a unique positive integer `number` and a `type` from the receiving application's configured observation enum. Remaining observation fields are optional and nullable. Locations require `sketch_id`, `x`, and `y` together, or all three null/omitted. Coordinates must be between 0 and 1; measurements must be between 0 and 99,999,999.99. Dates use `YYYY-MM-DD`. Unknown fields and unsupported versions are rejected. Files may include a UTF-8 BOM.
 
+`examination.person_name` is optional and nullable; exports include it only when the `person_name` config is set.
+
 The complete document is validated before inserting records, and the import runs inside a database transaction. A failed insert rolls back the new examination and its observations. Imported numbers are preserved; the next normal observation uses the next available number after the imported maximum.
 
 Use `{}` for empty examination details and `[]` for an empty observation list.
@@ -70,7 +72,7 @@ Enable the [optional package routes](integration.md#optional-http-routes), retai
 | --- | --- | --- | --- |
 | GET | `/human-examinations/examinations/{examination}/export?format=json` | `human-examinations.examinations.export` | `view` on the examination |
 | GET | `/human-examinations/examinations/{examination}/export?format=csv` | `human-examinations.examinations.export` | `view` on the examination |
-| POST | `/human-examinations/examinations/import` | `human-examinations.examinations.import` | `create` on `Examination::class` |
+| POST | `/human-examinations/examinations/import` | `human-examinations.examinations.import` | `create` on `HumanExamination::class` |
 
 Generate URLs with the configured route names. Exports return downloadable files. Import accepts a multipart `file` upload and redirects to `workspace_route` with the new examination, or back when no workspace route is configured. Validation errors use `file` or `document.*` keys. Soft-deleted examinations cannot be exported through these routes.
 

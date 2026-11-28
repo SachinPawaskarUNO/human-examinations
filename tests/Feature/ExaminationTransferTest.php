@@ -7,8 +7,8 @@ namespace HumanExaminations\HumanExaminations\Tests\Feature;
 use HumanExaminations\HumanExaminations\Actions\CreateObservation;
 use HumanExaminations\HumanExaminations\Actions\ExportExamination;
 use HumanExaminations\HumanExaminations\Actions\ImportExamination;
-use HumanExaminations\HumanExaminations\Models\Examination;
-use HumanExaminations\HumanExaminations\Models\Observation;
+use HumanExaminations\HumanExaminations\Models\ExaminationObservation;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 use HumanExaminations\HumanExaminations\Tests\TestCase;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\UploadedFile;
@@ -44,7 +44,7 @@ class ExaminationTransferTest extends TestCase
 
     public function test_guests_and_unconfigured_policies_cannot_import_or_export(): void
     {
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $this->getJson($this->exportUrl($exam))->assertUnauthorized();
         $this->upload($this->document())->assertUnauthorized();
         $this->actingAs((new User)->forceFill(['id' => 1]));
@@ -56,7 +56,7 @@ class ExaminationTransferTest extends TestCase
     public function test_export_uses_view_permission_and_import_uses_create_permission(): void
     {
         $this->authorize(2);
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $this->get($this->exportUrl($exam))->assertOk();
         $this->upload($this->document())->assertForbidden();
         $exam->update(['reference' => 'PRIVATE']);
@@ -66,7 +66,7 @@ class ExaminationTransferTest extends TestCase
     public function test_json_round_trip_preserves_active_data_numbers_and_locations_with_new_database_ids(): void
     {
         $this->authorize();
-        $exam = Examination::create(['reference' => 'ROUND-TRIP', 'examiner' => 'Demo Examiner', 'date' => '2026-11-19', 'notes' => "Line one\nLine two"]);
+        $exam = HumanExamination::create(['reference' => 'ROUND-TRIP', 'examiner' => 'Demo Examiner', 'date' => '2026-11-19', 'notes' => "Line one\nLine two"]);
         $first = $exam->observations()->create(['number' => 7, 'type' => 'Scar', 'region' => 'Custom precise region', 'length_mm' => '32.50', 'width_mm' => '0.00', 'sketch_id' => 'body-front', 'x' => 0, 'y' => 1]);
         $exam->observations()->create(['number' => 22, 'type' => 'Tattoo', 'label' => 'Unmapped finding']);
         $deleted = $exam->observations()->create(['number' => 30, 'type' => 'Bruise']);
@@ -84,7 +84,7 @@ class ExaminationTransferTest extends TestCase
         $this->assertSame('0.000000', $document['observations'][0]['x']);
 
         $this->upload($document)->assertRedirect(route('host.examinations.show', 2));
-        $imported = Examination::findOrFail(2);
+        $imported = HumanExamination::findOrFail(2);
         $this->assertSame($document, app(ExportExamination::class)->handle($imported));
         $this->assertNotSame($first->id, $imported->observations()->where('number', 7)->sole()->id);
         $this->assertSame(23, app(CreateObservation::class)->handle($imported)->number);
@@ -95,7 +95,7 @@ class ExaminationTransferTest extends TestCase
     public function test_csv_export_quotes_multiline_fields_and_neutralizes_spreadsheet_formulas(): void
     {
         $this->authorize();
-        $exam = Examination::create(['reference' => '=1+1', 'notes' => "Quoted \"note\", with\nnew line"]);
+        $exam = HumanExamination::create(['reference' => '=1+1', 'notes' => "Quoted \"note\", with\nnew line"]);
         $exam->observations()->create(['number' => 2, 'type' => 'Scar', 'label' => '@SUM(1,2)', 'region' => 'Arm, near elbow', 'description' => "First line\nSecond line"]);
         $response = $this->get($this->exportUrl($exam).'?format=csv')->assertOk()->assertDownload('human-examination-'.$exam->id.'.csv');
         $stream = fopen('php://memory', 'w+');
@@ -167,7 +167,7 @@ class ExaminationTransferTest extends TestCase
         $this->upload($this->document([['number' => 1, 'type' => 'Scar'], ['number' => 2, 'type' => 'Scar']]))->assertUnprocessable();
         config()->set('human-examinations.transfer.max_file_kilobytes', 1);
         $this->upload(array_replace($this->document(), ['examination' => ['notes' => str_repeat('x', 2048)]]))->assertUnprocessable()->assertJsonValidationErrors('file');
-        $exam = Examination::create([]);
+        $exam = HumanExamination::create([]);
         $this->getJson($this->exportUrl($exam).'?format=xml')->assertUnprocessable();
         $exam->delete();
         $this->getJson($this->exportUrl($exam))->assertNotFound();
@@ -175,7 +175,7 @@ class ExaminationTransferTest extends TestCase
 
     public function test_import_rolls_back_the_parent_and_children_when_persistence_fails(): void
     {
-        Event::listen('eloquent.creating: '.Observation::class, function (Observation $observation): void {
+        Event::listen('eloquent.creating: '.ExaminationObservation::class, function (ExaminationObservation $observation): void {
             if ($observation->number === 2) {
                 throw new RuntimeException('Simulated persistence failure');
             }
@@ -187,7 +187,7 @@ class ExaminationTransferTest extends TestCase
         } catch (RuntimeException $exception) {
             $this->assertSame('Simulated persistence failure', $exception->getMessage());
         } finally {
-            Event::forget('eloquent.creating: '.Observation::class);
+            Event::forget('eloquent.creating: '.ExaminationObservation::class);
         }
         $this->assertDatabaseCount('human_examinations', 0);
         $this->assertDatabaseCount('human_examination_observations', 0);
@@ -209,10 +209,10 @@ class ExaminationTransferTest extends TestCase
     private function authorize(int $id = 1): void
     {
         $this->actingAs((new User)->forceFill(['id' => $id]));
-        Gate::policy(Examination::class, TransferExaminationPolicy::class);
+        Gate::policy(HumanExamination::class, TransferExaminationPolicy::class);
     }
 
-    private function exportUrl(Examination $exam): string
+    private function exportUrl(HumanExamination $exam): string
     {
         return route('transfer.examinations.export', $exam);
     }
@@ -241,7 +241,7 @@ class ExaminationTransferTest extends TestCase
 
 class TransferExaminationPolicy
 {
-    public function view(User $user, Examination $examination): bool
+    public function view(User $user, HumanExamination $examination): bool
     {
         return $examination->reference !== 'PRIVATE';
     }
@@ -260,7 +260,7 @@ enum TransferObservationType: string
 
 class CustomImportExamination extends ImportExamination
 {
-    public function handle(array $document): Examination
+    public function handle(array $document): HumanExamination
     {
         $document['examination']['reference'] = 'Custom import';
 
@@ -270,7 +270,7 @@ class CustomImportExamination extends ImportExamination
 
 class CustomExportExamination extends ExportExamination
 {
-    public function handle(Examination $examination): array
+    public function handle(HumanExamination $examination): array
     {
         $document = parent::handle($examination);
         $document['examination']['notes'] = 'Custom export';

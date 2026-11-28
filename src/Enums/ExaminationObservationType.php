@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HumanExaminations\HumanExaminations\Enums;
 
-enum ObservationType: string
+enum ExaminationObservationType: string
 {
     case Unspecified = 'Unspecified';
     case Scar = 'Scar';

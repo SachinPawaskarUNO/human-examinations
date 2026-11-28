@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace HumanExaminations\HumanExaminations\Support;
 
-use HumanExaminations\HumanExaminations\Contracts\ResolvesPersonName;
-use HumanExaminations\HumanExaminations\Models\Examination;
-use HumanExaminations\HumanExaminations\Models\Observation;
+use HumanExaminations\HumanExaminations\Contracts\ExaminationResolvesPersonName;
+use HumanExaminations\HumanExaminations\Models\ExaminationObservation;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 use InvalidArgumentException;
 
 /** Explicit field projections shared by the workspace and portable documents. */
@@ -17,7 +17,7 @@ class RecordData
     public const array OBSERVATION_FIELDS = ['number', 'type', 'label', 'region', 'description', 'length_mm', 'width_mm', 'sketch_id', 'x', 'y'];
 
     /** @return array<string, mixed> */
-    public static function examination(Examination $examination): array
+    public static function examination(HumanExamination $examination): array
     {
         return [
             ...$examination->only(self::EXAMINATION_FIELDS),
@@ -27,7 +27,7 @@ class RecordData
     }
 
     /** @return array<string, mixed> */
-    public static function observation(Observation $observation): array
+    public static function observation(ExaminationObservation $observation): array
     {
         return [
             ...$observation->only(self::OBSERVATION_FIELDS),
@@ -40,7 +40,7 @@ class RecordData
      *
      * @return array{person_name?: string|null}
      */
-    private static function personName(Examination $examination): array
+    public static function personName(HumanExamination $examination): array
     {
         $source = config('human-examinations.person_name');
 
@@ -54,8 +54,8 @@ class RecordData
 
         $resolver = app($source);
 
-        if (! $resolver instanceof ResolvesPersonName) {
-            throw new InvalidArgumentException($source.' must implement '.ResolvesPersonName::class.'.');
+        if (! $resolver instanceof ExaminationResolvesPersonName) {
+            throw new InvalidArgumentException($source.' must implement '.ExaminationResolvesPersonName::class.'.');
         }
 
         return ['person_name' => $resolver->personName($examination)];

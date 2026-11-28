@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HumanExaminations\HumanExaminations\Actions;
 
-use HumanExaminations\HumanExaminations\Models\Examination;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
@@ -16,15 +16,15 @@ class CreateExamination
      *
      * @param  array{reference?: string|null, examiner?: string|null, person_name?: string|null, date?: string|null, notes?: string|null}  $attributes
      */
-    public function handle(array $attributes = []): Examination
+    public function handle(array $attributes = []): HumanExamination
     {
         // Person names are saved only when users type them.
         if (config('human-examinations.person_name') !== 'typed') {
             $attributes = Arr::except($attributes, 'person_name');
         }
 
-        return (new Examination)->getConnection()->transaction(function () use ($attributes): Examination {
-            $examination = Examination::create($attributes);
+        return (new HumanExamination)->getConnection()->transaction(function () use ($attributes): HumanExamination {
+            $examination = HumanExamination::create($attributes);
 
             // A reference format takes precedence over any reference sent with the request.
             if (($reference = $this->formatReference($examination)) !== null) {
@@ -39,7 +39,7 @@ class CreateExamination
      * The reference for a new examination created without one, or null to leave it blank.
      * Override this method in your own CreateExamination to generate references another way.
      */
-    protected function formatReference(Examination $examination): ?string
+    protected function formatReference(HumanExamination $examination): ?string
     {
         $format = config('human-examinations.reference_format');
 

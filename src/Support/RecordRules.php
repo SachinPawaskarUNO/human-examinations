@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HumanExaminations\HumanExaminations\Support;
 
-use HumanExaminations\HumanExaminations\Models\Observation;
+use HumanExaminations\HumanExaminations\Models\ExaminationObservation;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 use Illuminate\Validation\ValidationException;
@@ -49,7 +49,7 @@ class RecordRules
     public static function observation(): array
     {
         return [
-            'type' => ['required', 'string', Rule::enum(Observation::typeEnum())],
+            'type' => ['required', 'string', Rule::enum(ExaminationObservation::typeEnum())],
             'label' => ['nullable', 'string', 'max:255'],
             'region' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],

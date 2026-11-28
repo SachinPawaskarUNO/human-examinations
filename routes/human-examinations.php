@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use HumanExaminations\HumanExaminations\Http\Controllers\ExaminationController;
+use HumanExaminations\HumanExaminations\Http\Controllers\ExaminationObservationController;
 use HumanExaminations\HumanExaminations\Http\Controllers\ExaminationTransferController;
-use HumanExaminations\HumanExaminations\Http\Controllers\ObservationController;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Support\Facades\Route;
 
@@ -32,8 +32,8 @@ Route::middleware([
 
         Route::patch('examinations/{examination}', [ExaminationController::class, 'update'])->name('examinations.update');
 
-        Route::post('examinations/{examination}/observations', [ObservationController::class, 'store'])->name('observations.store');
-        Route::patch('examinations/{examination}/observations/{observation}', [ObservationController::class, 'update'])->name('observations.update');
-        Route::delete('examinations/{examination}/observations/{observation}', [ObservationController::class, 'destroy'])->name('observations.destroy');
-        Route::post('examinations/{examination}/observations/{observation}/restore', [ObservationController::class, 'restore'])->name('observations.restore');
+        Route::post('examinations/{examination}/observations', [ExaminationObservationController::class, 'store'])->name('observations.store');
+        Route::patch('examinations/{examination}/observations/{observation}', [ExaminationObservationController::class, 'update'])->name('observations.update');
+        Route::delete('examinations/{examination}/observations/{observation}', [ExaminationObservationController::class, 'destroy'])->name('observations.destroy');
+        Route::post('examinations/{examination}/observations/{observation}/restore', [ExaminationObservationController::class, 'restore'])->name('observations.restore');
     });

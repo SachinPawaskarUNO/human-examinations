@@ -56,17 +56,17 @@ service provider:
 
 ```php
 use App\Policies\ExaminationPolicy;
-use HumanExaminations\HumanExaminations\Models\Examination;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 use Illuminate\Support\Facades\Gate;
 
 public function boot(): void
 {
-    Gate::policy(Examination::class, ExaminationPolicy::class);
+    Gate::policy(HumanExamination::class, ExaminationPolicy::class);
 }
 ```
 
 You can generate the policy with
-`php artisan make:policy ExaminationPolicy --model="HumanExaminations\HumanExaminations\Models\Examination"`.
+`php artisan make:policy ExaminationPolicy --model="HumanExaminations\HumanExaminations\Models\HumanExamination"`.
 Implement its `create`, `view`, and `update` methods using your application's permissions
 and record or team associations. The package does not define ownership rules.
 Exports require `view`; imports require `create` and always create a new examination. See [import and export](import-export.md) for the document format, limits, configurable actions, and Vue callbacks.
@@ -218,15 +218,15 @@ tab, PNG exports, and JSON and CSV exports. Set where names come from with
 
 For `'typed'`, pass `:person-name-editable="true"` to the workspace, for example
 `'personNameEditable' => config('human-examinations.person_name') === 'typed'`
-from your page. For a class, implement `ResolvesPersonName`:
+from your page. For a class, implement `ExaminationResolvesPersonName`:
 
 ```php
-use HumanExaminations\HumanExaminations\Contracts\ResolvesPersonName;
-use HumanExaminations\HumanExaminations\Models\Examination;
+use HumanExaminations\HumanExaminations\Contracts\ExaminationResolvesPersonName;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 
-class PatientName implements ResolvesPersonName
+class PatientName implements ExaminationResolvesPersonName
 {
-    public function personName(Examination $examination): ?string
+    public function personName(HumanExamination $examination): ?string
     {
         return $examination->patient?->name;
     }
@@ -277,6 +277,6 @@ read-only in the Examination tab:
 ```
 
 The format is applied by the `CreateExamination` action, which the package's
-HTTP create route uses; calling `Examination::create()` directly does not apply
+HTTP create route uses; calling `HumanExamination::create()` directly does not apply
 it. To generate references another way, extend `CreateExamination`, override
 `formatReference()`, and register your class under `actions.create_examination`.

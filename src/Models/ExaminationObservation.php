@@ -6,7 +6,7 @@ namespace HumanExaminations\HumanExaminations\Models;
 
 use BackedEnum;
 use DomainException;
-use HumanExaminations\HumanExaminations\Enums\ObservationType;
+use HumanExaminations\HumanExaminations\Enums\ExaminationObservationType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -18,7 +18,7 @@ use ReflectionNamedType;
  * @property int $id
  * @property int $examination_id
  * @property int $number
- * @property BackedEnum $type An ObservationType case, or a case of the configured enum
+ * @property BackedEnum $type An ExaminationObservationType case, or a case of the configured enum
  * @property string|null $label
  * @property string|null $region
  * @property string|null $description
@@ -30,9 +30,9 @@ use ReflectionNamedType;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
- * @property-read Examination|null $examination
+ * @property-read HumanExamination|null $examination
  */
-class Observation extends Model
+class ExaminationObservation extends Model
 {
     use SoftDeletes;
 
@@ -47,7 +47,7 @@ class Observation extends Model
 
     protected static function booted(): void
     {
-        static::saving(function (Observation $observation): void {
+        static::saving(function (ExaminationObservation $observation): void {
             // Validate raw values before decimal and integer casts can round invalid input.
             $attributes = $observation->getAttributes();
             $number = filter_var($attributes['number'] ?? null, FILTER_VALIDATE_INT);
@@ -91,7 +91,7 @@ class Observation extends Model
      */
     public static function typeEnum(): string
     {
-        $enum = config('human-examinations.observation_type', ObservationType::class);
+        $enum = config('human-examinations.observation_type', ExaminationObservationType::class);
 
         if (! is_string($enum) || ! enum_exists($enum) || ! is_subclass_of($enum, BackedEnum::class)) {
             throw new DomainException('The human-examinations.observation_type config must be a backed enum class.');
@@ -106,10 +106,10 @@ class Observation extends Model
         return $enum;
     }
 
-    /** @return BelongsTo<Examination, $this> */
+    /** @return BelongsTo<HumanExamination, $this> */
     public function examination(): BelongsTo
     {
-        return $this->belongsTo(Examination::class);
+        return $this->belongsTo(HumanExamination::class);
     }
 
     /** @return array<string, string> */

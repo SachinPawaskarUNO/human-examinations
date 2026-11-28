@@ -6,7 +6,7 @@ namespace HumanExaminations\HumanExaminations\Http\Controllers;
 
 use HumanExaminations\HumanExaminations\Actions\CreateExamination;
 use HumanExaminations\HumanExaminations\Actions\UpdateExamination;
-use HumanExaminations\HumanExaminations\Models\Examination;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 use HumanExaminations\HumanExaminations\Support\RecordRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,7 +16,7 @@ class ExaminationController
 {
     public function store(Request $request, CreateExamination $createExamination): RedirectResponse
     {
-        Gate::authorize('create', Examination::class);
+        Gate::authorize('create', HumanExamination::class);
 
         $examination = $createExamination->handle($this->validated($request));
 
@@ -28,7 +28,7 @@ class ExaminationController
             : back();
     }
 
-    public function update(Request $request, Examination $examination, UpdateExamination $updateExamination): RedirectResponse
+    public function update(Request $request, HumanExamination $examination, UpdateExamination $updateExamination): RedirectResponse
     {
         Gate::authorize('update', $examination);
 

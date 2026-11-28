@@ -24,6 +24,9 @@ values. Testbench loads it because `testbench.yaml` enables `discovers.config`.
 The demo also uses a permissive guest policy; consuming applications use the
 policy setup in the [integration guide](integration.md#optional-http-routes).
 
+The demo includes three [sample examinations](installation.md#sample-data). To
+view them, go to **/examinations/1**, **/examinations/2**, or **/examinations/3**.
+
 Create an examination, then use **+** in Observations to add findings. Edits and
 removals are saved through the package routes; refresh the workspace to reload
 its active observations from the database. Invalid observation saves keep the form open

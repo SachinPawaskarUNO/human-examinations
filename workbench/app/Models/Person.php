@@ -2,7 +2,7 @@
 
 namespace Workbench\App\Models;
 
-use HumanExaminations\HumanExaminations\Models\Examination;
+use HumanExaminations\HumanExaminations\Models\HumanExamination;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,9 +11,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable(['name'])]
 class Person extends Model
 {
-    /** @return BelongsTo<Examination, $this> */
+    /** @return BelongsTo<HumanExamination, $this> */
     public function humanExamination(): BelongsTo
     {
-        return $this->belongsTo(Examination::class, 'human_examination_id');
+        return $this->belongsTo(HumanExamination::class, 'human_examination_id');
     }
 }
